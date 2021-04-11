@@ -258,17 +258,25 @@ static int abortboot_key_sequence(int bootdelay)
 static int abortboot_single_key(int bootdelay)
 {
 	int abort = 0;
+	int key;
 	unsigned long ts;
 
-	printf("Hit any key to stop autoboot: %2d ", bootdelay);
+	printf("Hit Enter or space or Ctrl+C key to stop autoboot -- : %2d ", bootdelay);
 
 	/*
 	 * Check if key already pressed
 	 */
 	if (tstc()) {	/* we got a key press	*/
-		getchar();	/* consume input	*/
-		puts("\b\b\b 0");
-		abort = 1;	/* don't auto boot	*/
+		key = getchar(); /* consume input	*/
+		switch (key) {
+			case 0x03:      /* ^C - Ctrl+C */
+			case 0x0d:      /* Enter */
+			case 0x20:      /* Space */ //only "enter" key can triger abort
+				puts("\b\b\b 0");
+				abort = 1;	/* don't auto boot	*/
+				bootdelay = 0;	/* no more delay	*/
+		}
+		
 	}
 
 	while ((bootdelay > 0) && (!abort)) {
@@ -277,11 +285,14 @@ static int abortboot_single_key(int bootdelay)
 		ts = get_timer(0);
 		do {
 			if (tstc()) {	/* we got a key press	*/
-				int key;
-
-				abort  = 1;	/* don't auto boot	*/
-				bootdelay = 0;	/* no more delay	*/
-				key = getchar();/* consume input	*/
+				key = getchar(); /* consume input	*/
+				switch (key) {
+					case 0x03:      /* ^C - Ctrl+C */
+					case 0x0d:      /* Enter */
+					case 0x20:      /* Space */ //only "enter" key can triger abort
+						abort = 1;	/* don't auto boot	*/
+						bootdelay = 0;	/* no more delay	*/
+				}
 				if (IS_ENABLED(CONFIG_USE_AUTOBOOT_MENUKEY))
 					menukey = key;
 				break;
