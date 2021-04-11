@@ -1,0 +1,9 @@
+DREAMBOX-S922X
+M:	Emanuel Strobel <emanuel.strobel@gmail.com>
+S:	Maintained
+L:	u-boot-amlogic@groups.io
+F:	board/amlogic/dreambox-s922x/
+F:	configs/dreambox-one_defconfig
+F:	configs/dreambox-two_defconfig
+F:	doc/board/amlogic/dreambox-one.rst
+F:	doc/board/amlogic/dreambox-two.rst
