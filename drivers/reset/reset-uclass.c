@@ -139,7 +139,8 @@ bulk_get_err:
 
 int reset_get_bulk(struct udevice *dev, struct reset_ctl_bulk *bulk)
 {
-	return __reset_get_bulk(dev, dev_ofnode(dev), bulk);
+	//return __reset_get_bulk(dev, dev_ofnode(dev), bulk);
+	return -ENOMEM;
 }
 
 int reset_get_by_name(struct udevice *dev, const char *name,
