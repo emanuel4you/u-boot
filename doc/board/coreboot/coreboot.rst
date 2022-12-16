@@ -26,7 +26,7 @@ this capability yet. The command is as follows::
    $ ./build/util/cbfstool/cbfstool build/coreboot.rom add-flat-binary \
      -f u-boot-dtb.bin -n fallback/payload -c lzma -l 0x1110000 -e 0x1110000
 
-Make sure 0x1110000 matches CONFIG_SYS_TEXT_BASE, which is the symbol address
+Make sure 0x1110000 matches CONFIG_TEXT_BASE, which is the symbol address
 of _x86boot_start (in arch/x86/cpu/start.S).
 
 If you want to use ELF as the coreboot payload, change U-Boot configuration to
@@ -50,3 +50,24 @@ works by using a 32-bit SPL binary to switch to 64-bit for running U-Boot. It
 can be useful for running UEFI applications, for example.
 
 This has only been lightly tested.
+
+
+Memory map
+----------
+
+  ==========  ==================================================================
+     Address  Region at that address
+  ==========  ==================================================================
+    ffffffff  Top of ROM (and last byte of 32-bit address space)
+    7a9fd000  Typical top of memory available to U-Boot
+              (use cbsysinfo to see where memory range 'table' starts)
+    10000000  Memory reserved by coreboot for mapping PCI devices
+              (typical size 2151000, includes framebuffer)
+     1920000  CONFIG_SYS_CAR_ADDR, fake Cache-as-RAM memory, used during startup
+     1110000  CONFIG_TEXT_BASE (start address of U-Boot code, before reloc)
+      110000  CONFIG_BLOBLIST_ADDR (before being relocated)
+      100000  CONFIG_PRE_CON_BUF_ADDR
+       f0000  ACPI tables set up by U-Boot
+              (typically redirects to 7ab10030 or similar)
+         500  Location of coreboot sysinfo table, used during startup
+  ==========  ==================================================================

@@ -76,16 +76,16 @@ static int do_fastboot_usb(int argc, char *const argv[],
 			break;
 		if (ctrlc())
 			break;
-		WATCHDOG_RESET();
+		schedule();
 		usb_gadget_handle_interrupts(controller_index);
 	}
 
 	ret = CMD_RET_SUCCESS;
 
 exit:
+	usb_gadget_release(controller_index);
 	g_dnl_unregister();
 	g_dnl_clear_detach();
-	usb_gadget_release(controller_index);
 
 	return ret;
 #else
@@ -112,13 +112,13 @@ static int do_fastboot(struct cmd_tbl *cmdtp, int flag, int argc,
 			case 'l':
 				if (--argc <= 0)
 					return CMD_RET_USAGE;
-				buf_addr = simple_strtoul(*++argv, NULL, 16);
+				buf_addr = hextoul(*++argv, NULL);
 				goto NXTARG;
 
 			case 's':
 				if (--argc <= 0)
 					return CMD_RET_USAGE;
-				buf_size = simple_strtoul(*++argv, NULL, 16);
+				buf_size = hextoul(*++argv, NULL);
 				goto NXTARG;
 
 			default:

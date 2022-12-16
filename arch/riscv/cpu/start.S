@@ -13,6 +13,7 @@
 #include <config.h>
 #include <common.h>
 #include <elf.h>
+#include <system-constants.h>
 #include <asm/encoding.h>
 #include <generated/asm-offsets.h>
 
@@ -94,7 +95,7 @@ call_board_init_f:
 #if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_STACK)
 	li	t1, CONFIG_SPL_STACK
 #else
-	li	t1, CONFIG_SYS_INIT_SP_ADDR
+	li	t1, SYS_INIT_SP_ADDR
 #endif
 	and	sp, t1, t0		/* force 16 byte alignment */
 
@@ -117,7 +118,11 @@ call_board_init_f_0:
 	mv	sp, a0
 #endif
 
-#ifndef CONFIG_XIP
+	/* Configure proprietary settings and customized CSRs of harts */
+call_harts_early_init:
+	jal	harts_early_init
+
+#if !CONFIG_IS_ENABLED(XIP)
 	/*
 	 * Pick hart to initialize global data and run U-Boot. The other harts
 	 * wait for initialization to complete.
@@ -135,36 +140,36 @@ call_board_init_f_0:
 	 * accesses gd).
 	 */
 	mv	gp, s0
+#if CONFIG_IS_ENABLED(RISCV_MMODE)
 	bnez	tp, secondary_hart_loop
 #endif
-
-#ifdef CONFIG_OF_PRIOR_STAGE
-	la	t0, prior_stage_fdt_address
-	SREG	s1, 0(t0)
 #endif
-
+	
+	mv      a0, s0
 	jal	board_init_f_init_reserve
 
 	SREG	s1, GD_FIRMWARE_FDT_ADDR(gp)
 	/* save the boot hart id to global_data */
 	SREG	tp, GD_BOOT_HART(gp)
 
-#ifndef CONFIG_XIP
+#if !CONFIG_IS_ENABLED(XIP)
+#ifdef CONFIG_AVAILABLE_HARTS
 	la	t0, available_harts_lock
 	amoswap.w.rl zero, zero, 0(t0)
+#endif
 
 wait_for_gd_init:
-	la	t0, available_harts_lock
-	li	t1, 1
-1:	amoswap.w.aq t1, t1, 0(t0)
-	bnez	t1, 1b
-
 	/*
 	 * Set the global data pointer only when gd_t has been initialized.
 	 * This was already set by arch_setup_gd on the boot hart, but all other
 	 * harts' global data pointers gets set here.
 	 */
 	mv	gp, s0
+#ifdef CONFIG_AVAILABLE_HARTS
+	la	t0, available_harts_lock
+	li	t1, 1
+1:	amoswap.w.aq t1, t1, 0(t0)
+	bnez	t1, 1b
 
 	/* register available harts in the available_harts mask */
 	li	t1, 1
@@ -174,6 +179,7 @@ wait_for_gd_init:
 	SREG	t2, GD_AVAILABLE_HARTS(gp)
 
 	amoswap.w.rl zero, zero, 0(t0)
+#endif
 
 	/*
 	 * Continue on hart lottery winner, others branch to

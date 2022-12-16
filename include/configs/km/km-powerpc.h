@@ -9,18 +9,7 @@
 
 /* Do boardspecific init for all boards */
 
-/* EEprom support 24C08, 24C16, 24C64 */
-#define CONFIG_SYS_EEPROM_PAGE_WRITE_ENABLE
-#define CONFIG_SYS_EEPROM_PAGE_WRITE_BITS	3  /* 8 Byte write page */
-#define CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS	10
-
-#define CONFIG_SYS_LOAD_ADDR	0x100000	/* default load address */
-
-/* Reserve 4 MB for malloc */
-#define CONFIG_SYS_MALLOC_LEN		(4 * 1024 * 1024)
-
 /* Increase max size of compressed kernel */
-#define CONFIG_SYS_BOOTM_LEN		0x2000000     /* 32 MB */
 
 /******************************************************************************
  * (PRAM usage)
@@ -32,11 +21,8 @@
  * @CONFIG_KM_RESERVED_PRAM: reserved pram for special purpose
  * @CONFIG_KM_PHRAM: address for /var
  * @CONFIG_KM_PNVRAM: address for PNVRAM (for the application)
- * @CONFIG_KM_ROOTFSSIZE: address for rootfilesystem in RAM
  */
 
-/* size of rootfs in RAM */
-#define CONFIG_KM_ROOTFSSIZE	0x0
 /* set the default PRAM value to at least PNVRAM + PHRAM when pram env variable
  * is not valid yet, which is the case for when u-boot copies itself to RAM */
 #define CONFIG_PRAM		((CONFIG_KM_PNVRAM + CONFIG_KM_PHRAM)>>10)

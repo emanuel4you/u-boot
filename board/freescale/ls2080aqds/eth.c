@@ -502,7 +502,7 @@ static int ls2080a_qds_mdio_init(char *realbusname, u8 muxval)
  */
 static void initialize_dpmac_to_slot(void)
 {
-	struct ccsr_gur __iomem *gur = (void *)CONFIG_SYS_FSL_GUTS_ADDR;
+	struct ccsr_gur __iomem *gur = (void *)CFG_SYS_FSL_GUTS_ADDR;
 	int serdes1_prtcl = (in_le32(&gur->rcwsr[28]) &
 				FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_MASK)
 		>> FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_SHIFT;
@@ -656,7 +656,7 @@ void ls2080a_handle_phy_interface_sgmii(int dpmac_id)
 {
 	int lane, slot;
 	struct mii_dev *bus;
-	struct ccsr_gur __iomem *gur = (void *)CONFIG_SYS_FSL_GUTS_ADDR;
+	struct ccsr_gur __iomem *gur = (void *)CFG_SYS_FSL_GUTS_ADDR;
 	int serdes1_prtcl = (in_le32(&gur->rcwsr[28]) &
 				FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_MASK)
 		>> FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_SHIFT;
@@ -799,7 +799,7 @@ void ls2080a_handle_phy_interface_qsgmii(int dpmac_id)
 {
 	int lane = 0, slot;
 	struct mii_dev *bus;
-	struct ccsr_gur __iomem *gur = (void *)CONFIG_SYS_FSL_GUTS_ADDR;
+	struct ccsr_gur __iomem *gur = (void *)CFG_SYS_FSL_GUTS_ADDR;
 	int serdes1_prtcl = (in_le32(&gur->rcwsr[28]) &
 				FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_MASK)
 		>> FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_SHIFT;
@@ -864,7 +864,7 @@ void ls2080a_handle_phy_interface_qsgmii(int dpmac_id)
 
 void ls2080a_handle_phy_interface_xsgmii(int i)
 {
-	struct ccsr_gur __iomem *gur = (void *)CONFIG_SYS_FSL_GUTS_ADDR;
+	struct ccsr_gur __iomem *gur = (void *)CFG_SYS_FSL_GUTS_ADDR;
 	int serdes1_prtcl = (in_le32(&gur->rcwsr[28]) &
 				FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_MASK)
 		>> FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_SHIFT;
@@ -874,13 +874,12 @@ void ls2080a_handle_phy_interface_xsgmii(int i)
 	case 0x4B:
 	case 0x4C:
 		/*
-		 * XFI does not need a PHY to work, but to avoid U-Boot use
-		 * default PHY address which is zero to a MAC when it found
-		 * a MAC has no PHY address, we give a PHY address to XFI
-		 * MAC, and should not use a real XAUI PHY address, since
-		 * MDIO can access it successfully, and then MDIO thinks
-		 * the XAUI card is used for the XFI MAC, which will cause
-		 * error.
+		 * 10GBase-R does not need a PHY to work, but to avoid U-Boot
+		 * use default PHY address which is zero to a MAC when it found
+		 * a MAC has no PHY address, we give a PHY address to 10GBase-R
+		 * MAC, and should not use a real XAUI PHY address, since MDIO
+		 * can access it successfully, and then MDIO thinks the XAUI
+		 * card is used for the 10GBase-R MAC, which will cause error.
 		 */
 		wriop_set_phy_address(i, 0, i + 4);
 		ls2080a_qds_enable_SFP_TX(SFP_TX);
@@ -899,7 +898,7 @@ int board_eth_init(struct bd_info *bis)
 {
 #ifndef CONFIG_DM_ETH
 #if defined(CONFIG_FSL_MC_ENET) && !defined(CONFIG_SPL_BUILD)
-	struct ccsr_gur __iomem *gur = (void *)CONFIG_SYS_FSL_GUTS_ADDR;
+	struct ccsr_gur __iomem *gur = (void *)CFG_SYS_FSL_GUTS_ADDR;
 	int serdes1_prtcl = (in_le32(&gur->rcwsr[28]) &
 				FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_MASK)
 		>> FSL_CHASSIS3_RCWSR28_SRDS1_PRTCL_SHIFT;
@@ -921,7 +920,7 @@ int board_eth_init(struct bd_info *bis)
 					sizeof(struct memac_mdio_info));
 	memac_mdio0_info->regs =
 		(struct memac_mdio_controller *)
-					CONFIG_SYS_FSL_WRIOP1_MDIO1;
+					CFG_SYS_FSL_WRIOP1_MDIO1;
 	memac_mdio0_info->name = DEFAULT_WRIOP_MDIO1_NAME;
 
 	/* Register the real MDIO1 bus */
@@ -931,7 +930,7 @@ int board_eth_init(struct bd_info *bis)
 					sizeof(struct memac_mdio_info));
 	memac_mdio1_info->regs =
 		(struct memac_mdio_controller *)
-					CONFIG_SYS_FSL_WRIOP1_MDIO2;
+					CFG_SYS_FSL_WRIOP1_MDIO2;
 	memac_mdio1_info->name = DEFAULT_WRIOP_MDIO2_NAME;
 
 	/* Register the real MDIO2 bus */
@@ -1054,7 +1053,7 @@ static void get_str_protocol(u8 serdes_block, u32 protocol, char *str)
 
 int board_fit_config_name_match(const char *name)
 {
-	struct ccsr_gur *gur = (void *)(CONFIG_SYS_FSL_GUTS_ADDR);
+	struct ccsr_gur *gur = (void *)(CFG_SYS_FSL_GUTS_ADDR);
 	u32 rcw_status = in_le32(&gur->rcwsr[28]);
 	char srds_s1_str[2], srds_s2_str[2];
 	u32 srds_s1, srds_s2;

@@ -87,9 +87,6 @@ int board_late_init(void)
 #ifdef CONFIG_BOARD_EARLY_INIT_F
 int board_early_init_f(void)
 {
-#ifdef CONFIG_DEBUG_UART
-	debug_uart_init();
-#endif
 	return 0;
 }
 #endif
@@ -131,6 +128,13 @@ void spl_board_init(void)
 	sama5d3_xplained_nand_hw_init();
 #endif
 }
+
+#ifdef CONFIG_SPL_OS_BOOT
+int spl_start_uboot(void)
+{
+	return 0;
+}
+#endif
 
 static void ddr2_conf(struct atmel_mpddrc_config *ddr2)
 {

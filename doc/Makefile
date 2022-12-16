@@ -6,7 +6,7 @@ subdir-y :=
 
 # You can set these variables from the command line.
 SPHINXBUILD   = sphinx-build
-SPHINXOPTS    =
+SPHINXOPTS    = -W
 SPHINXDIRS    = .
 _SPHINXDIRS   = $(patsubst $(srctree)/doc/%/conf.py,%,$(wildcard $(srctree)/doc/*/conf.py))
 SPHINX_CONF   = conf.py
@@ -56,7 +56,9 @@ quiet_cmd_sphinx = SPHINX  $@ --> file://$(abspath $(BUILDDIR)/$3/$4)
 	PYTHONDONTWRITEBYTECODE=1 \
 	BUILDDIR=$(abspath $(BUILDDIR)) SPHINX_CONF=$(abspath $(srctree)/$(src)/$5/$(SPHINX_CONF)) \
 	$(SPHINXBUILD) \
+	-j$(shell nproc) \
 	-b $2 \
+	-j auto \
 	-c $(abspath $(srctree)/$(src)) \
 	-d $(abspath $(BUILDDIR)/.doctrees/$3) \
 	-D version=$(KERNELVERSION) -D release=$(KERNELRELEASE) \

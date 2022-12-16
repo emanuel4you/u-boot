@@ -9,10 +9,24 @@ void clock_init_safe(void)
 {
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
+	struct sunxi_prcm_reg *const prcm =
+		(struct sunxi_prcm_reg *)SUNXI_PRCM_BASE;
 
-	/* this seems to enable PLLs on H616 */
-	if (IS_ENABLED(CONFIG_MACH_SUN50I_H616))
-		setbits_le32(SUNXI_PRCM_BASE + 0x250, 0x10);
+	if (IS_ENABLED(CONFIG_MACH_SUN50I_H616)) {
+		/* this seems to enable PLLs on H616 */
+		setbits_le32(&prcm->sys_pwroff_gating, 0x10);
+		setbits_le32(&prcm->res_cal_ctrl, 2);
+	}
+
+	clrbits_le32(&prcm->res_cal_ctrl, 1);
+	setbits_le32(&prcm->res_cal_ctrl, 1);
+
+	if (IS_ENABLED(CONFIG_MACH_SUN50I_H6)) {
+		/* set key field for ldo enable */
+		setbits_le32(&prcm->pll_ldo_cfg, 0xA7000000);
+		/* set PLL VDD LDO output to 1.14 V */
+		setbits_le32(&prcm->pll_ldo_cfg, 0x60000);
+	}
 
 	clock_set_pll1(408000000);
 
@@ -94,7 +108,7 @@ unsigned int clock_get_pll6(void)
 	int m = IS_ENABLED(CONFIG_MACH_SUN50I_H6) ? 4 : 2;
 
 	uint32_t rval = readl(&ccm->pll6_cfg);
-	int n = ((rval & CCM_PLL6_CTRL_N_MASK) >> CCM_PLL6_CTRL_N_SHIFT);
+	int n = ((rval & CCM_PLL6_CTRL_N_MASK) >> CCM_PLL6_CTRL_N_SHIFT) + 1;
 	int div1 = ((rval & CCM_PLL6_CTRL_DIV1_MASK) >>
 			CCM_PLL6_CTRL_DIV1_SHIFT) + 1;
 	int div2 = ((rval & CCM_PLL6_CTRL_DIV2_MASK) >>

@@ -25,7 +25,7 @@ int board_eth_init(struct bd_info *bis)
 	int i, interface;
 	struct memac_mdio_info mdio_info;
 	struct mii_dev *dev;
-	struct ccsr_gur *gur = (void *)(CONFIG_SYS_FSL_GUTS_ADDR);
+	struct ccsr_gur *gur = (void *)(CFG_SYS_FSL_GUTS_ADDR);
 	struct memac_mdio_controller *reg;
 	u32 srds_s1, cfg;
 
@@ -35,14 +35,14 @@ int board_eth_init(struct bd_info *bis)
 
 	srds_s1 = serdes_get_number(FSL_SRDS_1, cfg);
 
-	reg = (struct memac_mdio_controller *)CONFIG_SYS_FSL_WRIOP1_MDIO1;
+	reg = (struct memac_mdio_controller *)CFG_SYS_FSL_WRIOP1_MDIO1;
 	mdio_info.regs = reg;
 	mdio_info.name = DEFAULT_WRIOP_MDIO1_NAME;
 
 	/* Register the EMI 1 */
 	fm_memac_mdio_init(bis, &mdio_info);
 
-	reg = (struct memac_mdio_controller *)CONFIG_SYS_FSL_WRIOP1_MDIO2;
+	reg = (struct memac_mdio_controller *)CFG_SYS_FSL_WRIOP1_MDIO2;
 	mdio_info.regs = reg;
 	mdio_info.name = DEFAULT_WRIOP_MDIO2_NAME;
 
@@ -52,9 +52,9 @@ int board_eth_init(struct bd_info *bis)
 	switch (srds_s1) {
 	case 0x1D:
 		/*
-		 * XFI does not need a PHY to work, but to avoid U-boot use
-		 * default PHY address which is zero to a MAC when it found
-		 * a MAC has no PHY address, we give a PHY address to XFI
+		 * 10GBase-R does not need a PHY to work, but to avoid U-boot
+		 * use default PHY address which is zero to a MAC when it found
+		 * a MAC has no PHY address, we give a PHY address to 10GBase-R
 		 * MAC error.
 		 */
 		wriop_set_phy_address(WRIOP1_DPMAC1, 0, 0x0a);

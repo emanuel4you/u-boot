@@ -562,7 +562,7 @@ static void phy_change(struct eth_device *dev)
 	struct uec_priv	*uec = (struct uec_priv *)dev->priv;
 
 #if defined(CONFIG_ARCH_P1021) || defined(CONFIG_ARCH_P1025)
-	ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
+	ccsr_gur_t *gur = (void *)(CFG_SYS_MPC85xx_GUTS_ADDR);
 
 	/* QE9 and QE12 need to be set for enabling QE MII management signals */
 	setbits_be32(&gur->pmuxcr, MPC85xx_PMUXCR_QE9);
@@ -1194,7 +1194,7 @@ static int uec_init(struct eth_device *dev, struct bd_info *bd)
 	int			err, i;
 	struct phy_info         *curphy;
 #if defined(CONFIG_ARCH_P1021) || defined(CONFIG_ARCH_P1025)
-	ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
+	ccsr_gur_t *gur = (void *)(CFG_SYS_MPC85xx_GUTS_ADDR);
 #endif
 
 	uec = (struct uec_priv *)dev->priv;
@@ -1407,7 +1407,7 @@ int uec_initialize(struct bd_info *bis, struct uec_inf *uec_info)
 
 	if (!mdiodev)
 		return -ENOMEM;
-	strncpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
+	strlcpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
 	mdiodev->read = uec_miiphy_read;
 	mdiodev->write = uec_miiphy_write;
 

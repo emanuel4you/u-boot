@@ -97,7 +97,7 @@ int dram_init(void)
 int fixed_sdram(void)
 {
 	immap_t *im = (immap_t *) CONFIG_SYS_IMMR;
-	u32 msize = CONFIG_SYS_DDR_SIZE * 1024 * 1024;
+	u32 msize = CONFIG_SYS_SDRAM_SIZE;
 	u32 msize_log2 = __ilog2(msize);
 
 	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_SDRAM_BASE & 0xfffff000;
@@ -127,7 +127,7 @@ int fixed_sdram(void)
 
 	im->ddr.sdram_cfg |= SDRAM_CFG_MEM_EN;
 	udelay(2000);
-	return CONFIG_SYS_DDR_SIZE;
+	return CONFIG_SYS_SDRAM_SIZE >> 20;
 }
 #endif	/*!CONFIG_SYS_SPD_EEPROM */
 
@@ -176,7 +176,7 @@ int board_early_init_f(void)
 }
 
 #ifdef CONFIG_FSL_ESDHC
-#if !(CONFIG_IS_ENABLED(DM_MMC))
+#if !(CONFIG_IS_ENABLED(DM_MMC) || CONFIG_IS_ENABLED(DM_USB))
 int board_mmc_init(struct bd_info *bd)
 {
 	struct immap __iomem *im = (struct immap __iomem *)CONFIG_SYS_IMMR;
@@ -215,6 +215,15 @@ int misc_init_r(void)
 #endif
 
 	return rc;
+}
+
+int board_late_init(void)
+{
+	volatile immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
+#ifdef CONFIG_USB_HOST
+	clrsetbits_be32(&immap->sysconf.sicrl, SICRL_USB_A, 0x40000000);
+#endif
+	return 0;
 }
 
 #if defined(CONFIG_OF_BOARD_SETUP)

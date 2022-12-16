@@ -14,7 +14,6 @@
 #include <dm.h>
 #include <env.h>
 #include <init.h>
-#include <lcd.h>
 #include <net.h>
 #ifndef CONFIG_DM_ETH
 #include <netdev.h>
@@ -140,7 +139,7 @@ static void lcd_splash(int width, int height)
 }
 #endif
 
-#ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO
 static void at91sam9g45_lcd_hw_init(void)
 {
 	at91_set_A_periph(AT91_PIN_PE0, 0);	/* LCDDPWR */
@@ -338,7 +337,7 @@ int board_init(void)
 	at91_mci_hw_init();
 #endif
 
-#ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO
 	at91sam9g45_lcd_hw_init();
 	at91_set_A_periph(AT91_PIN_PE6, 1);	/* power up */
 
@@ -376,7 +375,7 @@ int board_late_init(void)
 		/* Parse MAC address */
 		for (i = 0; i < 6; i++) {
 			env_enetaddr[i] = env_str ?
-				simple_strtoul(env_str, &end, 16) : 0;
+				hextoul(env_str, &end) : 0;
 			if (env_str)
 				env_str = (*end) ? end+1 : end;
 		}

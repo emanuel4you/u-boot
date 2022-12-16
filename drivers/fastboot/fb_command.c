@@ -10,7 +10,6 @@
 #include <fastboot-internal.h>
 #include <fb_mmc.h>
 #include <fb_nand.h>
-#include <flash.h>
 #include <part.h>
 #include <stdlib.h>
 
@@ -208,7 +207,7 @@ static void download(char *cmd_parameter, char *response)
 		return;
 	}
 	fastboot_bytes_received = 0;
-	fastboot_bytes_expected = simple_strtoul(cmd_parameter, &tmp, 16);
+	fastboot_bytes_expected = hextoul(cmd_parameter, &tmp);
 	if (fastboot_bytes_expected == 0) {
 		fastboot_fail("Expected nonzero image size", response);
 		return;

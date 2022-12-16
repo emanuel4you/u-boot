@@ -52,6 +52,10 @@ If CONFIG_LOG is not set, then no logging will be available.
 The above have SPL and TPL versions also, e.g. CONFIG_SPL_LOG_MAX_LEVEL and
 CONFIG_TPL_LOG_MAX_LEVEL.
 
+If logging is disabled, the default behaviour is to output any message at
+level LOGL_INFO and below. If logging is disabled and DEBUG is defined (at
+the very top of a C file) then any message at LOGL_DEBUG will be written.
+
 Temporary logging within a single file
 --------------------------------------
 
@@ -62,26 +66,21 @@ Sometimes it is useful to turn on logging just in one file. You can use this
    #define LOG_DEBUG
 
 to enable building in of all logging statements in a single file. Put it at
-the top of the file, before any #includes.
-
-To actually get U-Boot to output this you need to also set the default logging
-level - e.g. set CONFIG_LOG_DEFAULT_LEVEL to 7 (:c:data:`LOGL_DEBUG`) or more.
-Otherwise debug output is suppressed and will not be generated.
+the top of the file, before any #includes and any message in the file will be
+written, regardless of the value of CONFIG_LOG_DEFAULT_LEVEL.
 
 Using DEBUG
 -----------
 
 U-Boot has traditionally used a #define called DEBUG to enable debugging on a
-file-by-file basis. The debug() macro compiles to a printf() statement if
-DEBUG is enabled, and an empty statement if not.
+file-by-file basis but LOG_DEBUG are intended to replace it with the logging
+facilities; DEBUG is activated when LOG_DEBUG is activated.
 
 With logging enabled, debug() statements are interpreted as logging output
-with a level of LOGL_DEBUG and a category of LOGC_NONE.
+with a level of LOGL_DEBUG and a category of LOG_CATEGORY.
 
-The logging facilities are intended to replace DEBUG, but if DEBUG is defined
-at the top of a file, then it takes precedence. This means that debug()
-statements will result in output to the console and this output will not be
-logged.
+With logging disabled, the debug() macro compiles to a printf() statement
+if DEBUG is enabled and to an empty statement if not.
 
 Logging statements
 ------------------
@@ -290,8 +289,6 @@ More logging destinations:
 * buffer - recorded in a memory buffer
 
 Convert debug() statements in the code to log() statements
-
-Support making printf() emit log statements at L_INFO level
 
 Convert error() statements in the code to log() statements
 

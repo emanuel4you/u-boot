@@ -64,8 +64,7 @@ static int mtk_snfi_adjust_op_size(struct spi_slave *slave,
 	 * or the output+input data must not exceed the GPRAM size.
 	 */
 
-	nbytes = sizeof(op->cmd.opcode) + op->addr.nbytes +
-		op->dummy.nbytes;
+	nbytes = op->cmd.nbytes + op->addr.nbytes + op->dummy.nbytes;
 
 	if (nbytes + op->data.nbytes <= SNFI_GPRAM_SIZE)
 		return 0;
@@ -203,7 +202,7 @@ static int mtk_snfi_exec_op(struct spi_slave *slave,
 	int addr_sh;
 	int ret;
 
-	WATCHDOG_RESET();
+	schedule();
 
 	ret = mtk_snfi_mac_reset(priv);
 	if (ret)

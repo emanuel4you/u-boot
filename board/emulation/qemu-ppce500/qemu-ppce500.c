@@ -14,6 +14,8 @@
 #include <net.h>
 #include <pci.h>
 #include <time.h>
+#include <dm/simple_bus.h>
+#include <dm/uclass-internal.h>
 #include <asm/global_data.h>
 #include <asm/processor.h>
 #include <asm/mmu.h>
@@ -29,6 +31,10 @@
 #include <virtio.h>
 
 DECLARE_GLOBAL_DATA_PTR;
+
+/* Virtual address range for PCI region maps */
+#define SYS_PCI_MAP_START	0x80000000
+#define SYS_PCI_MAP_END		0xe0000000
 
 static void *get_fdt_virt(void)
 {
@@ -99,7 +105,7 @@ static int pci_map_region(phys_addr_t paddr, phys_size_t size, ulong *pmap_addr)
 	map_addr += size - 1;
 	map_addr &= ~(size - 1);
 
-	if (map_addr + size >= CONFIG_SYS_PCI_MAP_END)
+	if (map_addr + size >= SYS_PCI_MAP_END)
 		return -1;
 
 	/* Map virtual memory for range */
@@ -107,6 +113,17 @@ static int pci_map_region(phys_addr_t paddr, phys_size_t size, ulong *pmap_addr)
 	*pmap_addr = map_addr + size;
 
 	return 0;
+}
+
+static void platform_bus_map_region(ulong map_addr, phys_addr_t paddr,
+				    phys_size_t size)
+{
+	/* Align map_addr */
+	map_addr += size - 1;
+	map_addr &= ~(size - 1);
+
+	/* Map virtual memory for range */
+	assert(!tlb_map_range(map_addr, paddr, size, TLB_MAP_IO));
 }
 
 int misc_init_r(void)
@@ -124,7 +141,7 @@ int misc_init_r(void)
 	pci_get_regions(dev, &io, &mem, &pre);
 
 	/* Start MMIO and PIO range maps above RAM */
-	map_addr = CONFIG_SYS_PCI_MAP_START;
+	map_addr = SYS_PCI_MAP_START;
 
 	/* Map MMIO range */
 	ret = pci_map_region(mem->phys_start, mem->size, &map_addr);
@@ -147,6 +164,22 @@ int misc_init_r(void)
 	 * virtual-physical mapping that was used in the pre-relocation phase.
 	 */
 	disable_tlb(find_tlb_idx((void *)CONFIG_SYS_TMPVIRT, 1));
+
+	/*
+	 * Detect the presence of the platform bus node, and
+	 * create a virtual memory mapping for it.
+	 */
+	for (ret = uclass_find_first_device(UCLASS_SIMPLE_BUS, &dev);
+	     dev;
+	     ret = uclass_find_next_device(&dev)) {
+		if (device_is_compatible(dev, "qemu,platform")) {
+			struct simple_bus_plat *plat = dev_get_uclass_plat(dev);
+
+			platform_bus_map_region(CONFIG_PLATFORM_BUS_MAP_ADDR,
+						plat->target, plat->size);
+			break;
+		}
+	}
 
 	return 0;
 }
@@ -302,10 +335,11 @@ u32 cpu_mask(void)
 /**
  * Return the virtual address of FDT that was passed by QEMU
  *
- * @return virtual address of FDT received from QEMU in r3 register
+ * Return: virtual address of FDT received from QEMU in r3 register
  */
-void *board_fdt_blob_setup(void)
+void *board_fdt_blob_setup(int *err)
 {
+	*err = 0;
 	return get_fdt_virt();
 }
 

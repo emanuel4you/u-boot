@@ -13,7 +13,6 @@
 		led0 = &led0;
 		led1 = &led1;
 		led2 = &led2;
-		mmc0 = &usdhc3;
 		nand = &gpmi;
 		ssi0 = &ssi1;
 		usb0 = &usbh1;
@@ -33,8 +32,6 @@
 
 	gpio-keys {
 		compatible = "gpio-keys";
-		#address-cells = <1>;
-		#size-cells = <0>;
 
 		user-pb {
 			label = "user_pb";
@@ -545,7 +542,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usbotg>;
 	disable-over-current;
-	dr_mode = "otg";
 	status = "okay";
 };
 
@@ -732,6 +728,7 @@
 		fsl,pins = <
 			MX6QDL_PAD_GPIO_1__USB_OTG_ID		0x17059
 			MX6QDL_PAD_EIM_D22__GPIO3_IO22	0x1b0b0 /* OTG_PWR_EN */
+			MX6QDL_PAD_KEY_COL4__USB_OTG_OC		0x17059
 		>;
 	};
 

@@ -105,17 +105,11 @@ static void set_fec_duplex_speed(volatile fec_t *fecp, int dup_spd)
 	}
 
 	if ((dup_spd & 0xFFFF) == _100BASET) {
-#ifdef CONFIG_MCF5445x
-		fecp->rcr &= ~0x200;	/* disabled 10T base */
-#endif
 #ifdef MII_DEBUG
 		printf("100Mbps\n");
 #endif
 		bd->bi_ethspeed = 100;
 	} else {
-#ifdef CONFIG_MCF5445x
-		fecp->rcr |= 0x200;	/* enabled 10T base */
-#endif
 #ifdef MII_DEBUG
 		printf("10Mbps\n");
 #endif
@@ -284,17 +278,9 @@ int mcffec_init(struct udevice *dev)
 	fecpin_setclear(info, 1);
 	fec_reset(info);
 
-#if defined(CONFIG_CMD_MII) || defined (CONFIG_MII) || \
-	defined (CONFIG_SYS_DISCOVER_PHY)
-
 	mii_init();
 
 	set_fec_duplex_speed(fecp, info->dup_spd);
-#else
-#ifndef CONFIG_SYS_DISCOVER_PHY
-	set_fec_duplex_speed(fecp, (FECDUPLEX << 16) | FECSPEED);
-#endif	/* ifndef CONFIG_SYS_DISCOVER_PHY */
-#endif	/* CONFIG_CMD_MII || CONFIG_MII */
 
 	/* We use strictly polling mode only */
 	fecp->eimr = 0;

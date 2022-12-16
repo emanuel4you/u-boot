@@ -3,6 +3,9 @@
  * Copyright (C) 2018-2019 Intel Corporation <www.intel.com>
  *
  */
+
+#define LOG_CATEGORY UCLASS_FS_FIRMWARE_LOADER
+
 #include <common.h>
 #include <dm.h>
 #include <env.h>
@@ -16,6 +19,10 @@
 #include <mapmem.h>
 #include <malloc.h>
 #include <spl.h>
+
+#ifdef CONFIG_CMD_UBIFS
+#include <ubi_uboot.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 

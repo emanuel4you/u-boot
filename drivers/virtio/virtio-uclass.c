@@ -15,6 +15,8 @@
  * the VirtIO specification v1.0.
  */
 
+#define LOG_CATEGORY UCLASS_VIRTIO
+
 #include <common.h>
 #include <dm.h>
 #include <log.h>
@@ -181,21 +183,8 @@ void virtio_driver_features_init(struct virtio_dev_priv *priv,
 
 int virtio_init(void)
 {
-	struct udevice *bus;
-	int ret;
-
 	/* Enumerate all known virtio devices */
-	ret = uclass_first_device(UCLASS_VIRTIO, &bus);
-	if (ret)
-		return ret;
-
-	while (bus) {
-		ret = uclass_next_device(&bus);
-		if (ret)
-			break;
-	}
-
-	return ret;
+	return uclass_probe_all(UCLASS_VIRTIO);
 }
 
 static int virtio_uclass_pre_probe(struct udevice *udev)

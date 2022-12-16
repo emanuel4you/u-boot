@@ -19,12 +19,12 @@ DECLARE_GLOBAL_DATA_PTR;
 int board_init(void)
 {
 	/* address of boot parameters */
-	gd->bd->bi_boot_params = CONFIG_SYS_TEXT_BASE + 0x50000;
+	gd->bd->bi_boot_params = CONFIG_TEXT_BASE + 0x50000;
 
 	return 0;
 }
 
-void reset_cpu(ulong addr)
+void reset_cpu(void)
 {
 	writel(RST_CA53_CODE, RST_CA53RESCNT);
 }

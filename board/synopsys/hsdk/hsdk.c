@@ -844,7 +844,7 @@ static int hsdk_go_run(u32 cpu_start_reg)
 	return 0;
 }
 
-int board_prep_linux(bootm_headers_t *images)
+int board_prep_linux(struct bootm_headers *images)
 {
 	int ret, ofst;
 	char mask[15];
@@ -871,7 +871,7 @@ int board_prep_linux(bootm_headers_t *images)
 	if (env_common.core_mask.val == ALL_CPU_MASK)
 		return 0;
 
-	if (!IMAGE_ENABLE_OF_LIBFDT || !images->ft_len) {
+	if (!CONFIG_IS_ENABLED(OF_LIBFDT) || !images->ft_len) {
 		pr_err("WARN: core_mask setup will work properly only with external DTB!\n");
 		return 0;
 	}

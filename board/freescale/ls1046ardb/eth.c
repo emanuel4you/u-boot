@@ -22,7 +22,7 @@ int board_eth_init(struct bd_info *bis)
 	struct memac_mdio_info tgec_mdio_info;
 	struct mii_dev *dev;
 	u32 srds_s1;
-	struct ccsr_gur *gur = (void *)(CONFIG_SYS_FSL_GUTS_ADDR);
+	struct ccsr_gur *gur = (void *)(CFG_SYS_FSL_GUTS_ADDR);
 
 	srds_s1 = in_be32(&gur->rcwsr[4]) &
 			FSL_CHASSIS2_RCWSR4_SRDS1_PRTCL_MASK;
@@ -67,7 +67,7 @@ int board_eth_init(struct bd_info *bis)
 	for (i = FM1_DTSEC1; i < FM1_DTSEC1 + CONFIG_SYS_NUM_FM1_DTSEC; i++)
 		fm_info_set_mdio(i, dev);
 
-	/* XFI on lane A, MAC 9 */
+	/* 10GBase-R on lane A, MAC 9 */
 	dev = miiphy_get_dev_by_name(DEFAULT_FM_TGEC_MDIO_NAME);
 	fm_info_set_mdio(FM1_10GEC1, dev);
 
@@ -84,7 +84,7 @@ int fdt_update_ethernet_dt(void *blob)
 	int i, prop;
 	int offset, nodeoff;
 	const char *path;
-	struct ccsr_gur *gur = (void *)(CONFIG_SYS_FSL_GUTS_ADDR);
+	struct ccsr_gur *gur = (void *)(CFG_SYS_FSL_GUTS_ADDR);
 
 	srds_s1 = in_be32(&gur->rcwsr[4]) &
 			FSL_CHASSIS2_RCWSR4_SRDS1_PRTCL_MASK;

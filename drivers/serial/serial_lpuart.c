@@ -5,6 +5,7 @@
  */
 
 #include <common.h>
+#include <clock_legacy.h>
 #include <clk.h>
 #include <dm.h>
 #include <fsl_lpuart.h>
@@ -102,13 +103,9 @@ static void lpuart_write32(u32 flags, u32 *addr, u32 val)
 }
 
 
-#ifndef CONFIG_SYS_CLK_FREQ
-#define CONFIG_SYS_CLK_FREQ	0
-#endif
-
 u32 __weak get_lpuart_clk(void)
 {
-	return CONFIG_SYS_CLK_FREQ;
+	return get_board_sys_clk();
 }
 
 #if CONFIG_IS_ENABLED(CLK)
@@ -172,7 +169,7 @@ static int _lpuart_serial_getc(struct lpuart_serial_plat *plat)
 {
 	struct lpuart_fsl *base = plat->reg;
 	while (!(__raw_readb(&base->us1) & (US1_RDRF | US1_OR)))
-		WATCHDOG_RESET();
+		schedule();
 
 	barrier();
 
@@ -185,7 +182,7 @@ static void _lpuart_serial_putc(struct lpuart_serial_plat *plat,
 	struct lpuart_fsl *base = plat->reg;
 
 	while (!(__raw_readb(&base->us1) & US1_TDRE))
-		WATCHDOG_RESET();
+		schedule();
 
 	__raw_writeb(c, &base->ud);
 }
@@ -333,7 +330,7 @@ static int _lpuart32_serial_getc(struct lpuart_serial_plat *plat)
 	lpuart_read32(plat->flags, &base->stat, &stat);
 	while ((stat & STAT_RDRF) == 0) {
 		lpuart_write32(plat->flags, &base->stat, STAT_FLAGS);
-		WATCHDOG_RESET();
+		schedule();
 		lpuart_read32(plat->flags, &base->stat, &stat);
 	}
 
@@ -361,7 +358,7 @@ static void _lpuart32_serial_putc(struct lpuart_serial_plat *plat,
 		if ((stat & STAT_TDRE))
 			break;
 
-		WATCHDOG_RESET();
+		schedule();
 	}
 
 	lpuart_write32(plat->flags, &base->data, c);
@@ -553,6 +550,8 @@ static const struct dm_serial_ops lpuart_serial_ops = {
 static const struct udevice_id lpuart_serial_ids[] = {
 	{ .compatible = "fsl,ls1021a-lpuart", .data =
 		LPUART_FLAG_REGMAP_32BIT_REG | LPUART_FLAG_REGMAP_ENDIAN_BIG },
+	{ .compatible = "fsl,ls1028a-lpuart",
+		.data = LPUART_FLAG_REGMAP_32BIT_REG },
 	{ .compatible = "fsl,imx7ulp-lpuart",
 		.data = LPUART_FLAG_REGMAP_32BIT_REG },
 	{ .compatible = "fsl,vf610-lpuart"},

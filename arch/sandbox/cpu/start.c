@@ -4,14 +4,14 @@
  */
 
 #include <common.h>
+#include <cli.h>
 #include <command.h>
-#include <dm/root.h>
 #include <efi_loader.h>
 #include <errno.h>
+#include <event.h>
 #include <init.h>
 #include <log.h>
 #include <os.h>
-#include <cli.h>
 #include <sort.h>
 #include <asm/getopt.h>
 #include <asm/global_data.h>
@@ -19,6 +19,7 @@
 #include <asm/malloc.h>
 #include <asm/sections.h>
 #include <asm/state.h>
+#include <dm/root.h>
 #include <linux/ctype.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -58,7 +59,8 @@ static int h_compare_opt(const void *p1, const void *p2)
 int sandbox_early_getopt_check(void)
 {
 	struct sandbox_state *state = state_get_current();
-	struct sandbox_cmdline_option **sb_opt = __u_boot_sandbox_option_start;
+	struct sandbox_cmdline_option **sb_opt =
+		__u_boot_sandbox_option_start();
 	size_t num_options = __u_boot_sandbox_option_count();
 	size_t i;
 	int max_arg_len, max_noarg_len;
@@ -118,10 +120,11 @@ int sandbox_early_getopt_check(void)
 	os_exit(0);
 }
 
-int misc_init_f(void)
+static int sandbox_misc_init_f(void *ctx, struct event *event)
 {
 	return sandbox_early_getopt_check();
 }
+EVENT_SPY(EVT_MISC_INIT_F, sandbox_misc_init_f);
 
 static int sandbox_cmdline_cb_help(struct sandbox_state *state, const char *arg)
 {
@@ -202,21 +205,19 @@ SANDBOX_CMDLINE_OPT_SHORT(default_fdt, 'D', 0,
 static int sandbox_cmdline_cb_test_fdt(struct sandbox_state *state,
 				       const char *arg)
 {
-	const char *fmt = "/arch/sandbox/dts/test.dtb";
-	char *p;
+	char buf[256];
 	char *fname;
 	int len;
 
-	len = strlen(state->argv[0]) + strlen(fmt) + 1;
+	len = state_get_rel_filename("arch/sandbox/dts/test.dtb", buf,
+				     sizeof(buf));
+	if (len < 0)
+		return len;
+
 	fname = os_malloc(len);
 	if (!fname)
 		return -ENOMEM;
-	strcpy(fname, state->argv[0]);
-	p = strrchr(fname, '/');
-	if (!p)
-		p = fname + strlen(fname);
-	len -= p - fname;
-	snprintf(p, len, fmt);
+	strcpy(fname, buf);
 	state->fdt_fname = fname;
 
 	return 0;
@@ -242,6 +243,36 @@ static int sandbox_cmdline_cb_jump(struct sandbox_state *state,
 	return 0;
 }
 SANDBOX_CMDLINE_OPT_SHORT(jump, 'j', 1, "Jumped from previous U-Boot");
+
+static int sandbox_cmdline_cb_program(struct sandbox_state *state,
+				      const char *arg)
+{
+	/*
+	 * Record the program name to use when jumping to future phases. This
+	 * is the original executable which holds all the phases. We need to
+	 * use this instead of argv[0] since each phase is started by
+	 * extracting a particular binary from the full program, then running
+	 * it. Therefore in that binary, argv[0] contains only the
+	 * current-phase executable.
+	 *
+	 * For example, sandbox TPL may be started using image file:
+	 *
+	 *     ./image.bin
+	 *
+	 * but then TPL needs to run VPL, which it does by extracting the VPL
+	 * image from the image.bin file.
+	 *
+	 *    ./temp-vpl
+	 *
+	 * When VPL runs it needs access to the original image.bin so it can
+	 * extract the next phase (SPL). This works if we use '-f image.bin'
+	 * when starting the original image.bin file.
+	 */
+	state->prog_fname = arg;
+
+	return 0;
+}
+SANDBOX_CMDLINE_OPT_SHORT(program, 'p', 1, "U-Boot program name");
 
 static int sandbox_cmdline_cb_memory(struct sandbox_state *state,
 				     const char *arg)
@@ -389,6 +420,25 @@ static int sandbox_cmdline_cb_select_unittests(struct sandbox_state *state,
 }
 SANDBOX_CMDLINE_OPT_SHORT(select_unittests, 'k', 1, "Select unit tests to run");
 
+static int sandbox_cmdline_cb_signals(struct sandbox_state *state,
+				      const char *arg)
+{
+	state->handle_signals = true;
+
+	return 0;
+}
+SANDBOX_CMDLINE_OPT_SHORT(signals, 'S', 0,
+			  "Handle signals (such as SIGSEGV) in sandbox");
+
+static int sandbox_cmdline_cb_autoboot_keyed(struct sandbox_state *state,
+					     const char *arg)
+{
+	state->autoboot_keyed = true;
+
+	return 0;
+}
+SANDBOX_CMDLINE_OPT(autoboot_keyed, 0, "Allow keyed autoboot");
+
 static void setup_ram_buf(struct sandbox_state *state)
 {
 	/* Zero the RAM buffer if we didn't read it, to keep valgrind happy */
@@ -414,8 +464,10 @@ void __efi_runtime EFIAPI efi_reset_system(
 		efi_status_t reset_status,
 		unsigned long data_size, void *reset_data)
 {
-	os_fd_restore();
-	os_relaunch(os_argv);
+	if (reset_type == EFI_RESET_SHUTDOWN)
+		sandbox_exit();
+	else
+		sandbox_reset();
 }
 
 void sandbox_reset(void)
@@ -425,19 +477,27 @@ void sandbox_reset(void)
 	if (state_uninit())
 		os_exit(2);
 
-	if (dm_uninit())
-		os_exit(2);
-
 	/* Restart U-Boot */
 	os_relaunch(os_argv);
 }
 
-int main(int argc, char *argv[])
+int sandbox_main(int argc, char *argv[])
 {
 	struct sandbox_state *state;
+	void * text_base;
 	gd_t data;
 	int size;
 	int ret;
+
+	text_base = os_find_text_base();
+
+	/*
+	 * This must be the first invocation of os_malloc() to have
+	 * state->ram_buf in the low 4 GiB.
+	 */
+	ret = state_init();
+	if (ret)
+		goto err;
 
 	/*
 	 * Copy argv[] so that we can pass the arguments in the original
@@ -451,11 +511,7 @@ int main(int argc, char *argv[])
 
 	memset(&data, '\0', sizeof(data));
 	gd = &data;
-	gd->arch.text_base = os_find_text_base();
-
-	ret = state_init();
-	if (ret)
-		goto err;
+	gd->arch.text_base = text_base;
 
 	state = state_get_current();
 	if (os_parse_args(state, argc, argv))
@@ -472,9 +528,11 @@ int main(int argc, char *argv[])
 	if (ret)
 		goto err;
 
-	ret = os_setup_signal_handlers();
-	if (ret)
-		goto err;
+	if (state->handle_signals) {
+		ret = os_setup_signal_handlers();
+		if (ret)
+			goto err;
+	}
 
 #if CONFIG_VAL(SYS_MALLOC_F_LEN)
 	gd->malloc_base = CONFIG_MALLOC_F_ADDR;

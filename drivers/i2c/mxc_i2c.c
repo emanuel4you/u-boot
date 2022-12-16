@@ -110,32 +110,6 @@ static u16 i2c_clk_div[50][2] = {
 };
 #endif
 
-#ifndef CONFIG_SYS_MXC_I2C1_SPEED
-#define CONFIG_SYS_MXC_I2C1_SPEED 100000
-#endif
-#ifndef CONFIG_SYS_MXC_I2C2_SPEED
-#define CONFIG_SYS_MXC_I2C2_SPEED 100000
-#endif
-#ifndef CONFIG_SYS_MXC_I2C3_SPEED
-#define CONFIG_SYS_MXC_I2C3_SPEED 100000
-#endif
-#ifndef CONFIG_SYS_MXC_I2C4_SPEED
-#define CONFIG_SYS_MXC_I2C4_SPEED 100000
-#endif
-
-#ifndef CONFIG_SYS_MXC_I2C1_SLAVE
-#define CONFIG_SYS_MXC_I2C1_SLAVE 0
-#endif
-#ifndef CONFIG_SYS_MXC_I2C2_SLAVE
-#define CONFIG_SYS_MXC_I2C2_SLAVE 0
-#endif
-#ifndef CONFIG_SYS_MXC_I2C3_SLAVE
-#define CONFIG_SYS_MXC_I2C3_SLAVE 0
-#endif
-#ifndef CONFIG_SYS_MXC_I2C4_SLAVE
-#define CONFIG_SYS_MXC_I2C4_SLAVE 0
-#endif
-
 /*
  * Calculate and set proper clock divider
  */
@@ -225,7 +199,7 @@ static int wait_for_sr_state(struct mxc_i2c_bus *i2c_bus, unsigned state)
 		}
 		if ((sr & (state >> 8)) == (unsigned char)state)
 			return sr;
-		WATCHDOG_RESET();
+		schedule();
 		elapsed = get_timer(start_time);
 		if (elapsed > (CONFIG_SYS_HZ / 10))	/* .1 seconds */
 			break;
@@ -473,7 +447,7 @@ int i2c_idle_bus(struct mxc_i2c_bus *i2c_bus)
 		sda = dm_gpio_get_value(sda_gpio);
 		if ((sda & scl) == 1)
 			break;
-		WATCHDOG_RESET();
+		schedule();
 		elapsed = get_timer(start_time);
 		if (elapsed > (CONFIG_SYS_HZ / 5)) {	/* .2 seconds */
 			ret = -EBUSY;
@@ -797,8 +771,6 @@ void bus_i2c_init(int index, int speed, int unused,
 
 	bus_i2c_set_bus_speed(&mxc_i2c_buses[index], speed);
 }
-
-
 
 /*
  * Init I2C Bus

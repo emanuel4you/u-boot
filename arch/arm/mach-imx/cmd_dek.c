@@ -9,6 +9,7 @@
 #include <command.h>
 #include <log.h>
 #include <malloc.h>
+#include <memalign.h>
 #include <asm/byteorder.h>
 #include <linux/compiler.h>
 #include <fsl_sec.h>
@@ -17,7 +18,7 @@
 #include <tee.h>
 #ifdef CONFIG_IMX_SECO_DEK_ENCAP
 #include <asm/arch/sci/sci.h>
-#include <asm/arch/image.h>
+#include <asm/mach-imx/image.h>
 #endif
 #include <cpu_func.h>
 
@@ -39,7 +40,7 @@ static int blob_encap_dek(u32 src_addr, u32 dst_addr, u32 len)
 
 	hab_caam_clock_enable(1);
 
-	u32 out_jr_size = sec_in32(CONFIG_SYS_FSL_JR0_ADDR +
+	u32 out_jr_size = sec_in32(CFG_SYS_FSL_JR0_ADDR +
 				   FSL_CAAM_ORSR_JRa_OFFSET);
 	if (out_jr_size != FSL_CAAM_MAX_JR_SIZE)
 		sec_init();
@@ -300,9 +301,9 @@ static int do_dek_blob(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc != 4)
 		return CMD_RET_USAGE;
 
-	src_addr = simple_strtoul(argv[1], NULL, 16);
-	dst_addr = simple_strtoul(argv[2], NULL, 16);
-	len = simple_strtoul(argv[3], NULL, 10);
+	src_addr = hextoul(argv[1], NULL);
+	dst_addr = hextoul(argv[2], NULL);
+	len = dectoul(argv[3], NULL);
 
 	return blob_encap_dek(src_addr, dst_addr, len);
 }

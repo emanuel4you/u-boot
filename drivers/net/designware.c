@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2010
- * Vipin Kumar, ST Micoelectronics, vipin.kumar@st.com.
+ * Vipin Kumar, STMicroelectronics, vipin.kumar@st.com.
  */
 
 /*
@@ -91,9 +91,8 @@ static int dw_mdio_write(struct mii_dev *bus, int addr, int devad, int reg,
 }
 
 #if defined(CONFIG_DM_ETH) && CONFIG_IS_ENABLED(DM_GPIO)
-static int dw_mdio_reset(struct mii_dev *bus)
+static int __dw_mdio_reset(struct udevice *dev)
 {
-	struct udevice *dev = bus->priv;
 	struct dw_eth_dev *priv = dev_get_priv(dev);
 	struct dw_eth_pdata *pdata = dev_get_plat(dev);
 	int ret;
@@ -122,6 +121,13 @@ static int dw_mdio_reset(struct mii_dev *bus)
 
 	return 0;
 }
+
+static int dw_mdio_reset(struct mii_dev *bus)
+{
+	struct udevice *dev = bus->priv;
+
+	return __dw_mdio_reset(dev);
+}
 #endif
 
 #if IS_ENABLED(CONFIG_DM_MDIO)
@@ -142,9 +148,10 @@ int designware_eth_mdio_write(struct udevice *mdio_dev, int addr, int devad, int
 #if CONFIG_IS_ENABLED(DM_GPIO)
 int designware_eth_mdio_reset(struct udevice *mdio_dev)
 {
-	struct mdio_perdev_priv *pdata = dev_get_uclass_priv(mdio_dev);
+	struct mdio_perdev_priv *mdio_pdata = dev_get_uclass_priv(mdio_dev);
+	struct udevice *dev = mdio_pdata->mii_bus->priv;
 
-	return dw_mdio_reset(pdata->mii_bus);
+	return __dw_mdio_reset(dev->parent);
 }
 #endif
 
@@ -749,16 +756,16 @@ int designware_eth_write_hwaddr(struct udevice *dev)
 
 static int designware_eth_bind(struct udevice *dev)
 {
-#ifdef CONFIG_DM_PCI
-	static int num_cards;
-	char name[20];
+	if (IS_ENABLED(CONFIG_PCI)) {
+		static int num_cards;
+		char name[20];
 
-	/* Create a unique device name for PCI type devices */
-	if (device_is_on_pci_bus(dev)) {
-		sprintf(name, "eth_designware#%u", num_cards++);
-		device_set_name(dev, name);
+		/* Create a unique device name for PCI type devices */
+		if (device_is_on_pci_bus(dev)) {
+			sprintf(name, "eth_designware#%u", num_cards++);
+			device_set_name(dev, name);
+		}
 	}
-#endif
 
 	return 0;
 }
@@ -824,12 +831,11 @@ int designware_eth_probe(struct udevice *dev)
 	else
 		reset_deassert_bulk(&reset_bulk);
 
-#ifdef CONFIG_DM_PCI
 	/*
 	 * If we are on PCI bus, either directly attached to a PCI root port,
 	 * or via a PCI bridge, fill in plat before we probe the hardware.
 	 */
-	if (device_is_on_pci_bus(dev)) {
+	if (IS_ENABLED(CONFIG_PCI) && device_is_on_pci_bus(dev)) {
 		dm_pci_read_config32(dev, PCI_BASE_ADDRESS_0, &iobase);
 		iobase &= PCI_BASE_ADDRESS_MEM_MASK;
 		iobase = dm_pci_mem_to_phys(dev, iobase);
@@ -837,7 +843,6 @@ int designware_eth_probe(struct udevice *dev)
 		pdata->iobase = iobase;
 		pdata->phy_interface = PHY_INTERFACE_MODE_RMII;
 	}
-#endif
 
 	debug("%s, iobase=%x, priv=%p\n", __func__, iobase, priv);
 	ioaddr = iobase;
@@ -909,21 +914,15 @@ int designware_eth_of_to_plat(struct udevice *dev)
 	struct dw_eth_dev *priv = dev_get_priv(dev);
 #endif
 	struct eth_pdata *pdata = &dw_pdata->eth_pdata;
-	const char *phy_mode;
 #if CONFIG_IS_ENABLED(DM_GPIO)
 	int reset_flags = GPIOD_IS_OUT;
 #endif
 	int ret = 0;
 
 	pdata->iobase = dev_read_addr(dev);
-	pdata->phy_interface = -1;
-	phy_mode = dev_read_string(dev, "phy-mode");
-	if (phy_mode)
-		pdata->phy_interface = phy_get_interface_by_name(phy_mode);
-	if (pdata->phy_interface == -1) {
-		debug("%s: Invalid PHY interface '%s'\n", __func__, phy_mode);
+	pdata->phy_interface = dev_read_phy_mode(dev);
+	if (pdata->phy_interface == PHY_INTERFACE_MODE_NA)
 		return -EINVAL;
-	}
 
 	pdata->max_speed = dev_read_u32_default(dev, "max-speed", 0);
 

@@ -2,7 +2,7 @@
 /*
  * Marvell Armada 37xx SoC Peripheral clocks
  *
- * Marek Behun <marek.behun@nic.cz>
+ * Marek Behún <kabel@kernel.org>
  *
  * Based on Linux driver by:
  *   Gregory CLEMENT <gregory.clement@free-electrons.com>
@@ -626,4 +626,5 @@ U_BOOT_DRIVER(armada_37xx_periph_clk) = {
 	.ops		= &armada_37xx_periph_clk_ops,
 	.priv_auto	= sizeof(struct a37xx_periphclk),
 	.probe		= armada_37xx_periph_clk_probe,
+	.flags		= DM_FLAG_PRE_RELOC,
 };

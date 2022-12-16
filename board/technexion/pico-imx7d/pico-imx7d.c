@@ -60,7 +60,7 @@ int dram_init(void)
 	return 0;
 }
 
-#ifdef CONFIG_POWER
+#if CONFIG_IS_ENABLED(POWER_LEGACY)
 #define I2C_PMIC	3
 int power_init_board(void)
 {
@@ -175,7 +175,7 @@ int board_early_init_f(void)
 	return 0;
 }
 
-#ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO
 void setup_lcd(void)
 {
 	gpio_request(IMX_GPIO_NR(1, 11), "lcd_brightness");
@@ -192,7 +192,7 @@ int board_init(void)
 	/* address of boot parameters */
 	gd->bd->bi_boot_params = PHYS_SDRAM + 0x100;
 
-#ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO
 	setup_lcd();
 #endif
 #ifdef CONFIG_FEC_MXC
@@ -244,4 +244,3 @@ int board_ehci_hcd_init(int port)
 	}
 	return 0;
 }
-

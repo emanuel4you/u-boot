@@ -4,6 +4,8 @@
  * Written by Simon Glass <sjg@chromium.org>
  */
 
+#define LOG_CATEGORY	LOGC_DM
+
 #include <common.h>
 #include <dm.h>
 #include <errno.h>
@@ -35,6 +37,22 @@ struct regmap_field {
 };
 
 DECLARE_GLOBAL_DATA_PTR;
+
+/**
+ * do_range_check() - Control whether range checks are done
+ *
+ * Returns: true to do range checks, false to skip
+ *
+ * This is used to reduce code size on SPL where range checks are known not to
+ * be needed
+ *
+ * Add this to the top of the file to enable them: #define LOG_DEBUG
+ */
+static inline bool do_range_check(void)
+{
+	return _LOG_DEBUG || !IS_ENABLED(CONFIG_SPL);
+
+}
 
 /**
  * regmap_alloc() - Allocate a regmap with a given number of ranges.
@@ -293,6 +311,7 @@ struct regmap *devm_regmap_init(struct udevice *dev,
 	int rc;
 	struct regmap **mapp, *map;
 
+	/* this looks like a leak, but devres takes care of it */
 	mapp = devres_alloc(devm_regmap_release, sizeof(struct regmap *),
 			    __GFP_ZERO);
 	if (unlikely(!mapp))
@@ -390,7 +409,7 @@ int regmap_raw_read_range(struct regmap *map, uint range_num, uint offset,
 	struct regmap_range *range;
 	void *ptr;
 
-	if (range_num >= map->range_count) {
+	if (do_range_check() && range_num >= map->range_count) {
 		debug("%s: range index %d larger than range count\n",
 		      __func__, range_num);
 		return -ERANGE;
@@ -398,7 +417,8 @@ int regmap_raw_read_range(struct regmap *map, uint range_num, uint offset,
 	range = &map->ranges[range_num];
 
 	offset <<= map->reg_offset_shift;
-	if (offset + val_len > range->size) {
+	if (do_range_check() &&
+	    (offset + val_len > range->size || offset + val_len < offset)) {
 		debug("%s: offset/size combination invalid\n", __func__);
 		return -ERANGE;
 	}
@@ -435,7 +455,36 @@ int regmap_raw_read(struct regmap *map, uint offset, void *valp, size_t val_len)
 
 int regmap_read(struct regmap *map, uint offset, uint *valp)
 {
-	return regmap_raw_read(map, offset, valp, map->width);
+	union {
+		u8 v8;
+		u16 v16;
+		u32 v32;
+		u64 v64;
+	} u;
+	int res;
+
+	res = regmap_raw_read(map, offset, &u, map->width);
+	if (res)
+		return res;
+
+	switch (map->width) {
+	case REGMAP_SIZE_8:
+		*valp = u.v8;
+		break;
+	case REGMAP_SIZE_16:
+		*valp = u.v16;
+		break;
+	case REGMAP_SIZE_32:
+		*valp = u.v32;
+		break;
+	case REGMAP_SIZE_64:
+		*valp = u.v64;
+		break;
+	default:
+		unreachable();
+	}
+
+	return 0;
 }
 
 static inline void __write_8(u8 *addr, const u8 *val,
@@ -508,7 +557,7 @@ int regmap_raw_write_range(struct regmap *map, uint range_num, uint offset,
 	range = &map->ranges[range_num];
 
 	offset <<= map->reg_offset_shift;
-	if (offset + val_len > range->size) {
+	if (offset + val_len > range->size || offset + val_len < offset) {
 		debug("%s: offset/size combination invalid\n", __func__);
 		return -ERANGE;
 	}
@@ -546,7 +595,33 @@ int regmap_raw_write(struct regmap *map, uint offset, const void *val,
 
 int regmap_write(struct regmap *map, uint offset, uint val)
 {
-	return regmap_raw_write(map, offset, &val, map->width);
+	union {
+		u8 v8;
+		u16 v16;
+		u32 v32;
+		u64 v64;
+	} u;
+
+	switch (map->width) {
+	case REGMAP_SIZE_8:
+		u.v8 = val;
+		break;
+	case REGMAP_SIZE_16:
+		u.v16 = val;
+		break;
+	case REGMAP_SIZE_32:
+		u.v32 = val;
+		break;
+	case REGMAP_SIZE_64:
+		u.v64 = val;
+		break;
+	default:
+		debug("%s: regmap size %zu unknown\n", __func__,
+		      (size_t)map->width);
+		return -EINVAL;
+	}
+
+	return regmap_raw_write(map, offset, &u, map->width);
 }
 
 int regmap_update_bits(struct regmap *map, uint offset, uint mask, uint val)

@@ -60,7 +60,7 @@
 			#size-cells = <0>;
 			num-cs = <1>;
 			flash0: flash@0 {
-				compatible = "n25q128a11";
+				compatible = "n25q128a11", "jedec,spi-nor";
 				reg = <0x0>;
 				spi-tx-bus-width = <1>;
 				spi-rx-bus-width = <4>;
@@ -115,6 +115,13 @@
 						"dbg_trc", "dbg_apb";
 				reg = <0x100 0x100>;
 			};
+		};
+
+		scutimer: timer@f8f00600 {
+			u-boot,dm-pre-reloc;
+			compatible = "arm,cortex-a9-twd-timer";
+			reg = <0xf8f00600 0x20>;
+			clock-frequency = <333333333>;
 		};
 	};
 

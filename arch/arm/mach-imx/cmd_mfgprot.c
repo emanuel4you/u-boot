@@ -12,12 +12,10 @@
 #include <linux/compiler.h>
 #include <command.h>
 #include <common.h>
-#include <environment.h>
+#include <env.h>
 #include <fsl_sec.h>
 #include <mapmem.h>
 #include <memalign.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 /**
  * do_mfgprot() - Handle the "mfgprot" command-line command
@@ -29,7 +27,7 @@ DECLARE_GLOBAL_DATA_PTR;
  * Returns zero on success, CMD_RET_USAGE in case of misuse and negative
  * on error.
  */
-static int do_mfgprot(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+static int do_mfgprot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	u8 *m_ptr, *dgst_ptr, *c_ptr, *d_ptr, *dst_ptr;
 	char *pubk, *sign, *sel;
@@ -43,7 +41,7 @@ static int do_mfgprot(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 	/* Enable HAB clock */
 	hab_caam_clock_enable(1);
 
-	u32 out_jr_size = sec_in32(CONFIG_SYS_FSL_JR0_ADDR +
+	u32 out_jr_size = sec_in32(CFG_SYS_FSL_JR0_ADDR +
 				   FSL_CAAM_ORSR_JRa_OFFSET);
 
 	if (out_jr_size != FSL_CAAM_MAX_JR_SIZE)
@@ -71,8 +69,8 @@ static int do_mfgprot(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 		if (argc != 4)
 			return CMD_RET_USAGE;
 
-		m_addr = simple_strtoul(argv[2], NULL, 16);
-		m_size = simple_strtoul(argv[3], NULL, 10);
+		m_addr = hextoul(argv[2], NULL);
+		m_size = dectoul(argv[3], NULL);
 		m_ptr = map_physmem(m_addr, m_size, MAP_NOCACHE);
 		if (!m_ptr)
 			return -ENOMEM;

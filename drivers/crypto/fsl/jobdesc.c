@@ -22,13 +22,13 @@
  * Secure memory run command
  *
  * @param   sec_mem_cmd  Secure memory command register
- * @return  cmd_status  Secure memory command status register
+ * Return:  cmd_status  Secure memory command status register
  */
 uint32_t secmem_set_cmd(uint32_t sec_mem_cmd)
 {
 	uint32_t temp_reg;
 
-	ccsr_sec_t *sec = (void *)CONFIG_SYS_FSL_SEC_ADDR;
+	ccsr_sec_t *sec = (void *)CFG_SYS_FSL_SEC_ADDR;
 	uint32_t sm_vid = SM_VERSION(sec_in32(&sec->smvid));
 	uint32_t jr_id = 0;
 
@@ -52,13 +52,13 @@ uint32_t secmem_set_cmd(uint32_t sec_mem_cmd)
  *
  * @param   page  Number of the page to allocate.
  * @param   partition  Number of the partition to allocate.
- * @return  0 on success, ERROR_IN_PAGE_ALLOC otherwise
+ * Return:  0 on success, ERROR_IN_PAGE_ALLOC otherwise
  */
 int caam_page_alloc(uint8_t page_num, uint8_t partition_num)
 {
 	uint32_t temp_reg;
 
-	ccsr_sec_t *sec = (void *)CONFIG_SYS_FSL_SEC_ADDR;
+	ccsr_sec_t *sec = (void *)CFG_SYS_FSL_SEC_ADDR;
 	uint32_t sm_vid = SM_VERSION(sec_in32(&sec->smvid));
 	uint32_t jr_id = 0;
 
@@ -116,7 +116,7 @@ int caam_page_alloc(uint8_t page_num, uint8_t partition_num)
 int inline_cnstr_jobdesc_blob_dek(uint32_t *desc, const uint8_t *plain_txt,
 				       uint8_t *dek_blob, uint32_t in_sz)
 {
-	ccsr_sec_t *sec = (void *)CONFIG_SYS_FSL_SEC_ADDR;
+	ccsr_sec_t *sec = (void *)CFG_SYS_FSL_SEC_ADDR;
 	uint32_t sm_vid = SM_VERSION(sec_in32(&sec->smvid));
 	uint32_t jr_id = 0;
 
@@ -300,7 +300,7 @@ void inline_cnstr_jobdesc_rng_deinstantiation(u32 *desc, int handle)
 
 void inline_cnstr_jobdesc_rng(u32 *desc, void *data_out, u32 size)
 {
-	dma_addr_t dma_data_out = virt_to_phys(data_out);
+	caam_dma_addr_t dma_data_out = virt_to_phys(data_out);
 
 	init_job_desc(desc, 0);
 	append_operation(desc, OP_ALG_ALGSEL_RNG | OP_TYPE_CLASS1_ALG |

@@ -32,6 +32,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#ifdef CONFIG_REVISION_TAG
 u32 get_board_rev(void)
 {
 	struct iim_regs *iim = (struct iim_regs *)IMX_IIM_BASE;
@@ -46,6 +47,7 @@ u32 get_board_rev(void)
 
 	return (get_cpu_rev() & ~(0xF << 8)) | (rev & 0xF) << 8;
 }
+#endif
 
 #define UART_PAD_CTRL	(PAD_CTL_HYS | PAD_CTL_DSE_HIGH | \
 			 PAD_CTL_PUS_100K_UP | PAD_CTL_ODE)
@@ -122,7 +124,7 @@ static int power_init(void)
 		return ret;
 	}
 
-	if (!i2c_probe(CONFIG_SYS_FSL_PMIC_I2C_ADDR)) {
+	if (!i2c_probe(CFG_SYS_FSL_PMIC_I2C_ADDR)) {
 		ret = pmic_init(I2C_0);
 		if (ret)
 			return ret;

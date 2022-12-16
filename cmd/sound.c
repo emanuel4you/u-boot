@@ -41,9 +41,9 @@ static int do_play(struct cmd_tbl *cmdtp, int flag, int argc,
 	int freq = 400;
 
 	if (argc > 1)
-		msec = simple_strtoul(argv[1], NULL, 10);
+		msec = dectoul(argv[1], NULL);
 	if (argc > 2)
-		freq = simple_strtoul(argv[2], NULL, 10);
+		freq = dectoul(argv[2], NULL);
 
 	ret = uclass_first_device_err(UCLASS_SOUND, &dev);
 	if (!ret)
@@ -86,5 +86,5 @@ U_BOOT_CMD(
 	sound, 4, 1, do_sound,
 	"sound sub-system",
 	"init - initialise the sound driver\n"
-	"sound play [len] [freq] - play a sound for len ms at freq hz\n"
+	"sound play [len [freq]] - play a sound for len ms at freq Hz\n"
 );

@@ -1,20 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 Compass Electronics Group, LLC
+ * Copyright 2022 Logic PD, Inc. dba Beacon EmbeddedWorks
  */
 
-/ {
-	wdt-reboot {
-		compatible = "wdt-reboot";
-		wdt = <&wdog1>;
-		u-boot,dm-spl;
-	};
-};
-
-&{/soc@0} {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
-};
+#include "imx8mn-u-boot.dtsi"
 
 &{/soc@0/bus@30800000/i2c@30a20000/pmic@4b} {
 	u-boot,dm-spl;
@@ -22,24 +11,6 @@
 
 &{/soc@0/bus@30800000/i2c@30a20000/pmic@4b/regulators} {
 	u-boot,dm-spl;
-};
-
-&aips1 {
-	u-boot,dm-spl;
-	u-boot,dm-pre-reloc;
-};
-
-&aips2 {
-	u-boot,dm-spl;
-};
-
-&aips3 {
-	u-boot,dm-spl;
-};
-
-&clk {
-	u-boot,dm-spl;
-	u-boot,dm-pre-reloc;
 };
 
 &gpio1 {
@@ -52,15 +23,6 @@
 
 &i2c1 {
 	u-boot,dm-spl;
-};
-
-&iomuxc {
-	u-boot,dm-spl;
-};
-
-&osc_24m {
-	u-boot,dm-spl;
-	u-boot,dm-pre-reloc;
 };
 
 &pca6416_0 {
@@ -99,6 +61,10 @@
 	u-boot,off-on-delay-us = <20000>;
 };
 
+&uart2 {
+	u-boot,dm-spl;
+};
+
 &usdhc1 {
 	u-boot,dm-spl;
 	sd-uhs-sdr104;
@@ -117,6 +83,6 @@
 	mmc-hs400-enhanced-strobe;
 };
 
-&wdog1 {
+&pinctrl_wdog {
 	u-boot,dm-spl;
 };

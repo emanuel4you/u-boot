@@ -24,13 +24,11 @@
 #include <asm/arch/sama5d4.h>
 #include <atmel_hlcdc.h>
 #include <atmel_mci.h>
-#include <lcd.h>
 #include <mmc.h>
 #include <net.h>
 #include <netdev.h>
 #include <nand.h>
 #include <spi.h>
-#include <version.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -205,9 +203,6 @@ int board_eth_init(struct bd_info *bis)
 
 #ifdef CONFIG_USB_GADGET_ATMEL_USBA
 	usba_udc_probe(&pdata);
-#ifdef CONFIG_USB_ETH_RNDIS
-	usb_eth_initialize(bis);
-#endif
 #endif
 
 	return rc;

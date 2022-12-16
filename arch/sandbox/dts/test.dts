@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Devicetree file for running sandbox tests
+ *
+ * This includes lots of extra devices used by various tests.
+ *
+ * Note that SPL use the main sandbox.dts file
+ */
+
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
@@ -14,15 +23,22 @@
 
 	aliases {
 		console = &uart0;
-		eth0 = "/eth@10002000";
-		eth3 = &eth_3;
-		eth5 = &eth_5;
+		ethernet0 = "/eth@10002000";
+		ethernet2 = &swp_0;
+		ethernet3 = &eth_3;
+		ethernet4 = &dsa_eth0;
+		ethernet5 = &eth_5;
+		ethernet6 = "/eth@10004000";
+		ethernet7 = &swp_1;
+		ethernet8 = &phy_eth0;
 		gpio1 = &gpio_a;
 		gpio2 = &gpio_b;
 		gpio3 = &gpio_c;
 		i2c0 = "/i2c@0";
 		mmc0 = "/mmc0";
 		mmc1 = "/mmc1";
+		mmc2 = "/mmc2";
+		mmc3 = "/mmc3";
 		pci0 = &pci0;
 		pci1 = &pci1;
 		pci2 = &pci2;
@@ -43,12 +59,102 @@
 		fdt-dummy1 = "/translation-test@8000/dev@1,100";
 		fdt-dummy2 = "/translation-test@8000/dev@2,200";
 		fdt-dummy3 = "/translation-test@8000/noxlatebus@3,300/dev@42";
-		fdt-dummy4 = "/translation-test@8000/xlatebus@4,400/devs/dev@19";
 		usb0 = &usb_0;
 		usb1 = &usb_1;
 		usb2 = &usb_2;
 		axi0 = &axi;
 		osd0 = "/osd";
+	};
+
+	binman: binman {
+	};
+
+	config {
+		testing-bool;
+		testing-int = <123>;
+		testing-str = "testing";
+		environment {
+			from_fdt = "yes";
+			fdt_env_path = "";
+		};
+	};
+
+	bootstd {
+		u-boot,dm-vpl;
+		compatible = "u-boot,boot-std";
+
+		filename-prefixes = "/", "/boot/";
+		bootdev-order = "mmc2", "mmc1";
+
+		syslinux {
+			compatible = "u-boot,distro-syslinux";
+		};
+
+		efi {
+			compatible = "u-boot,distro-efi";
+		};
+
+		/*
+		 * This is used for the VBE OS-request tests. A FAT filesystem
+		 * created in a partition with the VBE information appearing
+		 * before the parititon starts
+		 */
+		firmware0 {
+			u-boot,dm-vpl;
+			compatible = "fwupd,vbe-simple";
+			storage = "mmc1";
+			skip-offset = <0x200>;
+			area-start = <0x400>;
+			area-size = <0x1000>;
+			state-offset = <0x400>;
+			state-size = <0x40>;
+			version-offset = <0x800>;
+			version-size = <0x100>;
+		};
+
+		/*
+		 * This is used for the VBE VPL tests. The MMC device holds the
+		 * binman image.bin file. The test progresses through each phase
+		 * of U-Boot, loading each in turn from MMC.
+		 *
+		 * Note that the test enables this node (and mmc3) before
+		 * running U-Boot
+		 */
+		firmware1 {
+			u-boot,dm-vpl;
+			status = "disabled";
+			compatible = "fwupd,vbe-simple";
+			storage = "mmc3";
+			skip-offset = <0x400000>;
+			area-start = <0>;
+			area-size = <0xe00000>;
+			state-offset = <0xdffc00>;
+			state-size = <0x40>;
+			version-offset = <0xdffe00>;
+			version-size = <0x100>;
+		};
+	};
+
+	fuzzing-engine {
+		compatible = "sandbox,fuzzing-engine";
+	};
+
+	reboot-mode0 {
+		compatible = "reboot-mode-gpio";
+		gpios = <&gpio_c 0 GPIO_ACTIVE_HIGH>, <&gpio_c 1 GPIO_ACTIVE_HIGH>;
+		u-boot,env-variable = "bootstatus";
+		mode-test = <0x01>;
+		mode-download = <0x03>;
+	};
+
+	reboot_mode1: reboot-mode@14 {
+		compatible = "reboot-mode-rtc";
+		rtc = <&rtc_0>;
+		reg = <0x30 4>;
+		u-boot,env-variable = "bootstatus";
+		big-endian;
+		mode-test = <0x21969147>;
+		mode-download = <0x51939147>;
 	};
 
 	audio: audio-codec {
@@ -131,6 +237,12 @@
 				size = <0x10000>;
 			};
 		};
+
+		cros_ec_pwm: cros-ec-pwm {
+			compatible = "google,cros-ec-pwm";
+			#pwm-cells = <1>;
+		};
+
 	};
 
 	dsi_host: dsi_host {
@@ -163,6 +275,9 @@
 		test4-gpios = <&gpio_a 14>, <&gpio_b 4 1 3 2 1>;
 		test5-gpios = <&gpio_a 19>;
 
+		bool-value;
+		int8-value = /bits/ 8 <0x12>;
+		int16-value = /bits/ 16 <0x1234>;
 		int-value = <1234>;
 		uint-value = <(-1234)>;
 		int64-value = /bits/ 64 <0x1111222233334444>;
@@ -454,28 +569,83 @@
 		compatible = "sandbox,clk-ccf";
 	};
 
+	efi-media {
+		compatible = "sandbox,efi-media";
+	};
+
 	eth@10002000 {
 		compatible = "sandbox,eth";
 		reg = <0x10002000 0x1000>;
-		fake-host-hwaddr = [00 00 66 44 22 00];
 	};
 
 	eth_5: eth@10003000 {
 		compatible = "sandbox,eth";
 		reg = <0x10003000 0x1000>;
-		fake-host-hwaddr = [00 00 66 44 22 11];
+		nvmem-cells = <&eth5_addr>;
+		nvmem-cell-names = "mac-address";
 	};
 
 	eth_3: sbe5 {
 		compatible = "sandbox,eth";
 		reg = <0x10005000 0x1000>;
-		fake-host-hwaddr = [00 00 66 44 22 33];
+		nvmem-cells = <&eth3_addr>;
+		nvmem-cell-names = "mac-address";
 	};
 
 	eth@10004000 {
 		compatible = "sandbox,eth";
 		reg = <0x10004000 0x1000>;
-		fake-host-hwaddr = [00 00 66 44 22 22];
+	};
+
+	phy_eth0: phy-test-eth {
+		compatible = "sandbox,eth";
+		reg = <0x10007000 0x1000>;
+		mac-address = [ 02 00 11 22 33 49 ];
+		phy-handle = <&ethphy1>;
+		phy-mode = "2500base-x";
+	};
+
+	dsa_eth0: dsa-test-eth {
+		compatible = "sandbox,eth";
+		reg = <0x10006000 0x1000>;
+		nvmem-cells = <&eth4_addr>;
+		nvmem-cell-names = "mac-address";
+	};
+
+	dsa-test {
+		compatible = "sandbox,dsa";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			swp_0: port@0 {
+				reg = <0>;
+				label = "lan0";
+				phy-mode = "rgmii-rxid";
+
+				fixed-link {
+					speed = <100>;
+					full-duplex;
+				};
+			};
+
+			swp_1: port@1 {
+				reg = <1>;
+				label = "lan1";
+				phy-mode = "rgmii-txid";
+				fixed-link = <0 1 100 0 0>;
+			};
+
+			port@2 {
+				reg = <2>;
+				ethernet = <&dsa_eth0>;
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+		};
 	};
 
 	firmware {
@@ -483,36 +653,50 @@
 			compatible = "sandbox,firmware";
 		};
 
-		sandbox-scmi-agent@0 {
+		scmi {
 			compatible = "sandbox,scmi-agent";
 			#address-cells = <1>;
 			#size-cells = <0>;
-
-			clk_scmi0: protocol@14 {
-				reg = <0x14>;
-				#clock-cells = <1>;
-			};
-
-			reset_scmi0: protocol@16 {
-				reg = <0x16>;
-				#reset-cells = <1>;
-			};
-		};
-
-		sandbox-scmi-agent@1 {
-			compatible = "sandbox,scmi-agent";
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			clk_scmi1: protocol@14 {
-				reg = <0x14>;
-				#clock-cells = <1>;
-			};
 
 			protocol@10 {
 				reg = <0x10>;
 			};
+
+			clk_scmi: protocol@14 {
+				reg = <0x14>;
+				#clock-cells = <1>;
+			};
+
+			reset_scmi: protocol@16 {
+				reg = <0x16>;
+				#reset-cells = <1>;
+			};
+
+			protocol@17 {
+				reg = <0x17>;
+
+				regulators {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					regul0_scmi: reg@0 {
+						reg = <0>;
+						regulator-name = "sandbox-voltd0";
+						regulator-min-microvolt = <1100000>;
+						regulator-max-microvolt = <3300000>;
+					};
+					regul1_scmi: reg@1 {
+						reg = <0x1>;
+						regulator-name = "sandbox-voltd1";
+						regulator-min-microvolt = <1800000>;
+					};
+				};
+			};
 		};
+	};
+
+	fpga {
+		compatible = "sandbox,fpga";
 	};
 
 	pinctrl-gpio {
@@ -569,7 +753,12 @@
 		reg = <0 1>;
 		compatible = "sandbox,i2c";
 		clock-frequency = <100000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinmux_i2c0_pins>;
+
 		eeprom@2c {
+			#address-cells = <1>;
+			#size-cells = <1>;
 			reg = <0x2c>;
 			compatible = "i2c-eeprom";
 			sandbox,emul = <&emul_eeprom>;
@@ -581,12 +770,22 @@
 					reg = <10 2>;
 				};
 			};
+
+			eth3_addr: mac-address@24 {
+				reg = <24 6>;
+			};
 		};
 
 		rtc_0: rtc@43 {
+			#address-cells = <1>;
+			#size-cells = <1>;
 			reg = <0x43>;
 			compatible = "sandbox-rtc";
 			sandbox,emul = <&emul0>;
+
+			eth4_addr: mac-address@40 {
+				reg = <0x40 6>;
+			};
 		};
 
 		rtc_1: rtc@61 {
@@ -633,11 +832,30 @@
 		i2c-eeprom = <&bootcount_i2c>;
 	};
 
+	bootcount_4@0 {
+		compatible = "u-boot,bootcount-syscon";
+		syscon = <&syscon0>;
+		reg = <0x0 0x04>, <0x0 0x04>;
+		reg-names = "syscon_reg", "offset";
+	};
+
+	bootcount_2@0 {
+		compatible = "u-boot,bootcount-syscon";
+		syscon = <&syscon0>;
+		reg = <0x0 0x04>, <0x0 0x02> ;
+		reg-names = "syscon_reg", "offset";
+	};
+
 	adc: adc@0 {
 		compatible = "sandbox,adc";
 		#io-channel-cells = <1>;
 		vdd-supply = <&buck2>;
 		vss-microvolts = <0>;
+	};
+
+	iommu: iommu@0 {
+		compatible = "sandbox,iommu";
+		#iommu-cells = <0>;
 	};
 
 	irq: irq {
@@ -649,6 +867,8 @@
 	lcd {
 		u-boot,dm-pre-reloc;
 		compatible = "sandbox,lcd-sdl";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinmux_lcd_pins>;
 		xres = <1366>;
 		yres = <768>;
 	};
@@ -679,6 +899,22 @@
 		};
 	};
 
+	wdt-gpio-toggle {
+		gpios = <&gpio_a 7 0>;
+		compatible = "linux,wdt-gpio";
+		hw_margin_ms = <100>;
+		hw_algo = "toggle";
+		always-running;
+	};
+
+	wdt-gpio-level {
+		gpios = <&gpio_a 7 0>;
+		compatible = "linux,wdt-gpio";
+		hw_margin_ms = <100>;
+		hw_algo = "level";
+		always-running;
+	};
+
 	mbox: mbox {
 		compatible = "sandbox,mbox";
 		#mbox-cells = <1>;
@@ -691,19 +927,27 @@
 	};
 
 	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
 		timebase-frequency = <2000000>;
-		cpu-test1 {
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			reg = <0x1>;
 			timebase-frequency = <3000000>;
 			compatible = "sandbox,cpu_sandbox";
 			u-boot,dm-pre-reloc;
 		};
 
-		cpu-test2 {
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			reg = <0x2>;
 			compatible = "sandbox,cpu_sandbox";
 			u-boot,dm-pre-reloc;
 		};
 
-		cpu-test3 {
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			reg = <0x3>;
 			compatible = "sandbox,cpu_sandbox";
 			u-boot,dm-pre-reloc;
 		};
@@ -731,20 +975,42 @@
 		};
 	};
 
+	memory-controller {
+		compatible = "sandbox,memory";
+	};
+
 	misc-test {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		compatible = "sandbox,misc_sandbox";
+
+		eth5_addr: mac-address@10 {
+			reg = <0x10 6>;
+		};
 	};
 
 	mmc2 {
 		compatible = "sandbox,mmc";
+		non-removable;
 	};
 
+	/* This is used for the bootdev tests */
 	mmc1 {
 		compatible = "sandbox,mmc";
+		filename = "mmc1.img";
 	};
 
-	mmc0 {
+	/* This is used for the fastboot tests */
+	mmc0: mmc0 {
 		compatible = "sandbox,mmc";
+	};
+
+	/* This is used for VBE VPL tests */
+	mmc3 {
+		status = "disabled";
+		compatible = "sandbox,mmc";
+		filename = "image.bin";
+		non-removable;
 	};
 
 	pch {
@@ -827,7 +1093,7 @@
 		#address-cells = <3>;
 		#size-cells = <2>;
 		ranges = <0x02000000 0 0x30000000 0x30000000 0 0x2000 // MEM0
-			  0x02000000 0 0x31000000 0x31000000 0 0x2000 // MEM1
+			  0x02000000 0 0x31000000 0x3e000000 0 0x2000 // MEM1
 			  0x01000000 0 0x40000000 0x40000000 0 0x2000>;
 		sandbox,dev-info = <0x08 0x00 0x1234 0x5678
 				    0x0c 0x00 0x1234 0x5678
@@ -899,6 +1165,8 @@
 	pwm: pwm {
 		compatible = "sandbox,pwm";
 		#pwm-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinmux_pwm_pins>;
 	};
 
 	pwm2 {
@@ -912,10 +1180,12 @@
 
 	reset@0 {
 		compatible = "sandbox,warm-reset";
+		u-boot,dm-pre-proper;
 	};
 
 	reset@1 {
 		compatible = "sandbox,reset";
+		u-boot,dm-pre-proper;
 	};
 
 	resetc: reset-ctl {
@@ -925,8 +1195,8 @@
 
 	reset-ctl-test {
 		compatible = "sandbox,reset-ctl-test";
-		resets = <&resetc 100>, <&resetc 2>;
-		reset-names = "other", "test";
+		resets = <&resetc 100>, <&resetc 2>, <&resetc 20>, <&resetc 40>;
+		reset-names = "other", "test", "test2", "test3";
 	};
 
 	rng {
@@ -947,6 +1217,11 @@
 	panel {
 		compatible = "simple-panel";
 		backlight = <&backlight 0 100>;
+	};
+
+	scsi {
+		compatible = "sandbox,scsi";
+		sandbox,filepath = "scsi.img";
 	};
 
 	smem@0 {
@@ -970,6 +1245,9 @@
 		reg = <0 1>;
 		compatible = "sandbox,spi";
 		cs-gpios = <0>, <0>, <&gpio_a 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinmux_spi0_pins>;
+
 		spi.bin@0 {
 			reg = <0>;
 			compatible = "spansion,m25p16", "jedec,spi-nor";
@@ -1059,6 +1337,8 @@
 	uart0: serial {
 		compatible = "sandbox,serial";
 		u-boot,dm-pre-reloc;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinmux_uart0_pins>;
 	};
 
 	usb_0: usb@0 {
@@ -1077,6 +1357,7 @@
 
 	usb_1: usb@1 {
 		compatible = "sandbox,usb";
+		iommus = <&iommu>;
 		hub {
 			compatible = "usb-hub";
 			usb,device-class = <9>;
@@ -1150,6 +1431,7 @@
 
 	wdt0: wdt@0 {
 		compatible = "sandbox,wdt";
+		hw_margin_ms = <200>;
 	};
 
 	axi: axi@0 {
@@ -1186,7 +1468,6 @@
 			  1 0x100 0x9000 0x1000
 			  2 0x200 0xA000 0x1000
 			  3 0x300 0xB000 0x1000
-			  4 0x400 0xC000 0x1000
 			 >;
 
 		dma-ranges = <0 0x000 0x10000000 0x1000
@@ -1223,25 +1504,6 @@
 				reg = <0x42>;
 			};
 		};
-
-		xlatebus@4,400 {
-			compatible = "sandbox,zero-size-cells-bus";
-			reg = <4 0x400 0x1000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges = <0 4 0x400 0x1000>;
-
-			devs {
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				dev@19 {
-					compatible = "denx,u-boot-fdt-dummy";
-					reg = <0x19>;
-				};
-			};
-		};
-
 	};
 
 	osd {
@@ -1262,8 +1524,10 @@
 
 	sandbox_scmi {
 		compatible = "sandbox,scmi-devices";
-		clocks = <&clk_scmi0 7>, <&clk_scmi0 3>, <&clk_scmi1 1>;
-		resets = <&reset_scmi0 3>;
+		clocks = <&clk_scmi 2>, <&clk_scmi 0>;
+		resets = <&reset_scmi 3>;
+		regul0-supply = <&regul0_scmi>;
+		regul1-supply = <&regul1_scmi>;
 	};
 
 	pinctrl {
@@ -1325,6 +1589,66 @@
 		};
 	};
 
+	pinctrl-single-no-width {
+		compatible = "pinctrl-single";
+		reg = <0x0000 0x238>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,function-mask = <0x7f>;
+	};
+
+	pinctrl-single-pins {
+		compatible = "pinctrl-single";
+		reg = <0x0000 0x238>;
+		#pinctrl-cells = <1>;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0x7f>;
+
+		pinmux_pwm_pins: pinmux_pwm_pins {
+			pinctrl-single,pins = < 0x48 0x06 >;
+		};
+
+		pinmux_spi0_pins: pinmux_spi0_pins {
+			pinctrl-single,pins = <
+				0x190 0x0c
+				0x194 0x0c
+				0x198 0x23
+				0x19c 0x0c
+			>;
+		};
+
+		pinmux_uart0_pins: pinmux_uart0_pins {
+			pinctrl-single,pins = <
+				0x70 0x30
+				0x74 0x00
+			>;
+		};
+	};
+
+	pinctrl-single-bits {
+		compatible = "pinctrl-single";
+		reg = <0x0000 0x50>;
+		#pinctrl-cells = <2>;
+		pinctrl-single,bit-per-mux;
+		pinctrl-single,register-width = <32>;
+		pinctrl-single,function-mask = <0xf>;
+
+		pinmux_i2c0_pins: pinmux_i2c0_pins {
+			pinctrl-single,bits = <
+				0x10 0x00002200 0x0000ff00
+			>;
+		};
+
+		pinmux_lcd_pins: pinmux_lcd_pins {
+			pinctrl-single,bits = <
+				0x40 0x22222200 0xffffff00
+				0x44 0x22222222 0xffffffff
+				0x48 0x00000022 0x000000ff
+				0x48 0x02000000 0x0f000000
+				0x4c 0x02000022 0x0f0000ff
+			>;
+		};
+	};
+
 	hwspinlock@0 {
 		compatible = "sandbox,hwspinlock";
 	};
@@ -1360,6 +1684,12 @@
 
 	mdio: mdio-test {
 		compatible = "sandbox,mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy1: ethernet-phy@1 {
+			reg = <1>;
+		};
 	};
 
 	pm-bus-test {
@@ -1387,6 +1717,13 @@
 		compatible = "sandbox,sysinfo-sandbox";
 	};
 
+	sysinfo-gpio {
+		compatible = "gpio-sysinfo";
+		gpios = <&gpio_a 15>, <&gpio_a 16>, <&gpio_a 17>;
+		revisions = <19>, <5>;
+		names = "rev_a", "foo";
+	};
+
 	some_regmapped-bus {
 		#address-cells = <0x1>;
 		#size-cells = <0x1>;
@@ -1399,7 +1736,20 @@
 			compatible = "sandbox,regmap_test";
 		};
 	};
+
+	thermal {
+		compatible = "sandbox,thermal";
+	};
+
+	fwu-mdata {
+		compatible = "u-boot,fwu-mdata-gpt";
+		fwu-mdata-store = <&mmc0>;
+	};
 };
 
 #include "sandbox_pmic.dtsi"
 #include "cros-ec-keyboard.dtsi"
+
+#ifdef CONFIG_SANDBOX_VPL
+#include "sandbox_vpl.dtsi"
+#endif

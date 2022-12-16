@@ -39,7 +39,7 @@ int board_init(void)
 	u32 i;
 
 	/* address of boot parameters */
-	gd->bd->bi_boot_params = CONFIG_SYS_TEXT_BASE + 0x50000;
+	gd->bd->bi_boot_params = CONFIG_TEXT_BASE + 0x50000;
 
 	/* Configure the HSUSB block */
 	mstp_clrbits_le32(SMSTPCR7, SMSTPCR7, HSUSB_MSTP704);
@@ -65,7 +65,7 @@ int board_init(void)
 	return 0;
 }
 
-void reset_cpu(ulong addr)
+void reset_cpu(void)
 {
 	unsigned long midr, cputype;
 

@@ -9,6 +9,7 @@
 #include <env.h>
 #include <fdtdec.h>
 #include <init.h>
+#include <env_internal.h>
 #include <log.h>
 #include <malloc.h>
 #include <time.h>
@@ -25,7 +26,10 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 #if defined(CONFIG_FPGA_VERSALPL)
-static xilinx_desc versalpl = XILINX_VERSAL_DESC;
+static xilinx_desc versalpl = {
+	xilinx_versal, csu_dma, 1, &versal_op, 0, &versal_op, NULL,
+	FPGA_LEGACY
+};
 #endif
 
 int board_init(void)
@@ -72,7 +76,7 @@ int board_early_init_r(void)
 	 * Program freq register in System counter and
 	 * enable system counter.
 	 */
-	writel(COUNTER_FREQUENCY,
+	writel(CONFIG_COUNTER_FREQUENCY,
 	       &iou_scntr_secure->base_frequency_id_register);
 
 	debug("counter val 0x%x\n",
@@ -87,6 +91,23 @@ int board_early_init_r(void)
 	debug("timer 0x%llx\n", get_ticks());
 
 	return 0;
+}
+
+unsigned long do_go_exec(ulong (*entry)(int, char * const []), int argc,
+			 char *const argv[])
+{
+	int ret = 0;
+
+	if (current_el() > 1) {
+		smp_kick_all_cpus();
+		dcache_disable();
+		armv8_switch_to_el1(0x0, 0, 0, 0, (unsigned long)entry,
+				    ES_TO_AARCH64);
+	} else {
+		printf("FAIL: current EL is not above EL1\n");
+		ret = EINVAL;
+	}
+	return ret;
 }
 
 static u8 versal_get_bootmode(void)
@@ -129,7 +150,7 @@ int board_late_init(void)
 	switch (bootmode) {
 	case USB_MODE:
 		puts("USB_MODE\n");
-		mode = "dfu_usb";
+		mode = "usb_dfu0 usb_dfu1";
 		break;
 	case JTAG_MODE:
 		puts("JTAG_MODE\n");
@@ -150,6 +171,8 @@ int board_late_init(void)
 	case EMMC_MODE:
 		puts("EMMC_MODE\n");
 		if (uclass_get_device_by_name(UCLASS_MMC,
+					      "mmc@f1050000", &dev) &&
+		    uclass_get_device_by_name(UCLASS_MMC,
 					      "sdhci@f1050000", &dev)) {
 			puts("Boot from EMMC but without SD1 enabled!\n");
 			return -1;
@@ -161,6 +184,8 @@ int board_late_init(void)
 	case SD_MODE:
 		puts("SD_MODE\n");
 		if (uclass_get_device_by_name(UCLASS_MMC,
+					      "mmc@f1040000", &dev) &&
+		    uclass_get_device_by_name(UCLASS_MMC,
 					      "sdhci@f1040000", &dev)) {
 			puts("Boot from SD0 but without SD0 enabled!\n");
 			return -1;
@@ -176,6 +201,8 @@ int board_late_init(void)
 	case SD_MODE1:
 		puts("SD_MODE1\n");
 		if (uclass_get_device_by_name(UCLASS_MMC,
+					      "mmc@f1050000", &dev) &&
+		    uclass_get_device_by_name(UCLASS_MMC,
 					      "sdhci@f1050000", &dev)) {
 			puts("Boot from SD1 but without SD1 enabled!\n");
 			return -1;
@@ -244,4 +271,33 @@ int dram_init(void)
 
 void reset_cpu(void)
 {
+}
+
+enum env_location env_get_location(enum env_operation op, int prio)
+{
+	u32 bootmode = versal_get_bootmode();
+
+	if (prio)
+		return ENVL_UNKNOWN;
+
+	switch (bootmode) {
+	case EMMC_MODE:
+	case SD_MODE:
+	case SD1_LSHFT_MODE:
+	case SD_MODE1:
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_FAT))
+			return ENVL_FAT;
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_EXT4))
+			return ENVL_EXT4;
+		return ENVL_NOWHERE;
+	case OSPI_MODE:
+	case QSPI_MODE_24BIT:
+	case QSPI_MODE_32BIT:
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH))
+			return ENVL_SPI_FLASH;
+		return ENVL_NOWHERE;
+	case JTAG_MODE:
+	default:
+		return ENVL_NOWHERE;
+	}
 }

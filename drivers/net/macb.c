@@ -98,6 +98,9 @@ struct macb_dma_desc_64 {
 #define MACB_RX_DMA_DESC_SIZE	(DMA_DESC_BYTES(MACB_RX_RING_SIZE))
 #define MACB_TX_DUMMY_DMA_DESC_SIZE	(DMA_DESC_BYTES(1))
 
+#define DESC_PER_CACHELINE_32	(ARCH_DMA_MINALIGN/sizeof(struct macb_dma_desc))
+#define DESC_PER_CACHELINE_64	(ARCH_DMA_MINALIGN/DMA_DESC_SIZE)
+
 #define RXBUF_FRMLEN_MASK	0x00000fff
 #define TXBUF_FRMLEN_MASK	0x000007ff
 
@@ -401,32 +404,56 @@ static int _macb_send(struct macb_device *macb, const char *name, void *packet,
 	return 0;
 }
 
+static void reclaim_rx_buffer(struct macb_device *macb,
+			      unsigned int idx)
+{
+	unsigned int mask;
+	unsigned int shift;
+	unsigned int i;
+
+	/*
+	 * There may be multiple descriptors per CPU cacheline,
+	 * so a cache flush would flush the whole line, meaning the content of other descriptors
+	 * in the cacheline would also flush. If one of the other descriptors had been
+	 * written to by the controller, the flush would cause those changes to be lost.
+	 *
+	 * To circumvent this issue, we do the actual freeing only when we need to free
+	 * the last descriptor in the current cacheline. When the current descriptor is the
+	 * last in the cacheline, we free all the descriptors that belong to that cacheline.
+	 */
+	if (macb->config->hw_dma_cap & HW_DMA_CAP_64B) {
+		mask = DESC_PER_CACHELINE_64 - 1;
+		shift = 1;
+	} else {
+		mask = DESC_PER_CACHELINE_32 - 1;
+		shift = 0;
+	}
+
+	/* we exit without freeing if idx is not the last descriptor in the cacheline */
+	if ((idx & mask) != mask)
+		return;
+
+	for (i = idx & (~mask); i <= idx; i++)
+		macb->rx_ring[i << shift].addr &= ~MACB_BIT(RX_USED);
+}
+
 static void reclaim_rx_buffers(struct macb_device *macb,
 			       unsigned int new_tail)
 {
 	unsigned int i;
-	unsigned int count;
 
 	i = macb->rx_tail;
 
 	macb_invalidate_ring_desc(macb, RX);
 	while (i > new_tail) {
-		if (macb->config->hw_dma_cap & HW_DMA_CAP_64B)
-			count = i * 2;
-		else
-			count = i;
-		macb->rx_ring[count].addr &= ~MACB_BIT(RX_USED);
+		reclaim_rx_buffer(macb, i);
 		i++;
-		if (i > MACB_RX_RING_SIZE)
+		if (i >= MACB_RX_RING_SIZE)
 			i = 0;
 	}
 
 	while (i < new_tail) {
-		if (macb->config->hw_dma_cap & HW_DMA_CAP_64B)
-			count = i * 2;
-		else
-			count = i;
-		macb->rx_ring[count].addr &= ~MACB_BIT(RX_USED);
+		reclaim_rx_buffer(macb, i);
 		i++;
 	}
 
@@ -574,14 +601,9 @@ static int macb_phy_find(struct macb_device *macb, const char *name)
 #ifdef CONFIG_DM_ETH
 static int macb_sifive_clk_init(struct udevice *dev, ulong rate)
 {
-	fdt_addr_t addr;
 	void *gemgxl_regs;
 
-	addr = dev_read_addr_index(dev, 1);
-	if (addr == FDT_ADDR_T_NONE)
-		return -ENODEV;
-
-	gemgxl_regs = (void __iomem *)addr;
+	gemgxl_regs = dev_read_addr_index_ptr(dev, 1);
 	if (!gemgxl_regs)
 		return -ENODEV;
 
@@ -1245,7 +1267,7 @@ int macb_eth_initialize(int id, void *regs, unsigned int phy_addr)
 	struct mii_dev *mdiodev = mdio_alloc();
 	if (!mdiodev)
 		return -ENOMEM;
-	strncpy(mdiodev->name, netdev->name, MDIO_NAME_LEN);
+	strlcpy(mdiodev->name, netdev->name, MDIO_NAME_LEN);
 	mdiodev->read = macb_miiphy_read;
 	mdiodev->write = macb_miiphy_write;
 
@@ -1353,7 +1375,7 @@ static const struct macb_usrio_cfg macb_default_usrio = {
 	.clken = MACB_BIT(CLKEN),
 };
 
-static const struct macb_config default_gem_config = {
+static struct macb_config default_gem_config = {
 	.dma_burst_length = 16,
 	.hw_dma_cap = HW_DMA_CAP_32B,
 	.clk_init = NULL,
@@ -1365,17 +1387,11 @@ static int macb_eth_probe(struct udevice *dev)
 	struct eth_pdata *pdata = dev_get_plat(dev);
 	struct macb_device *macb = dev_get_priv(dev);
 	struct ofnode_phandle_args phandle_args;
-	const char *phy_mode;
 	int ret;
 
-	phy_mode = dev_read_prop(dev, "phy-mode", NULL);
-
-	if (phy_mode)
-		macb->phy_interface = phy_get_interface_by_name(phy_mode);
-	if (macb->phy_interface == -1) {
-		debug("%s: Invalid PHY interface '%s'\n", __func__, phy_mode);
+	macb->phy_interface = dev_read_phy_mode(dev);
+	if (macb->phy_interface == PHY_INTERFACE_MODE_NA)
 		return -EINVAL;
-	}
 
 	/* Read phyaddr from DT */
 	if (!dev_read_phandle_with_args(dev, "phy-handle", NULL, 0, 0,
@@ -1383,13 +1399,18 @@ static int macb_eth_probe(struct udevice *dev)
 		macb->phy_addr = ofnode_read_u32_default(phandle_args.node,
 							 "reg", -1);
 
-	macb->regs = (void *)pdata->iobase;
+	macb->regs = (void *)(uintptr_t)pdata->iobase;
 
 	macb->is_big_endian = (cpu_to_be32(0x12345678) == 0x12345678);
 
 	macb->config = (struct macb_config *)dev_get_driver_data(dev);
-	if (!macb->config)
+	if (!macb->config) {
+		if (IS_ENABLED(CONFIG_DMA_ADDR_T_64BIT)) {
+			if (GEM_BFEXT(DAW64, gem_readl(macb, DCFG6)))
+				default_gem_config.hw_dma_cap = HW_DMA_CAP_64B;
+		}
 		macb->config = &default_gem_config;
+	}
 
 #ifdef CONFIG_CLK
 	ret = macb_enable_clk(dev);
@@ -1403,7 +1424,7 @@ static int macb_eth_probe(struct udevice *dev)
 	macb->bus = mdio_alloc();
 	if (!macb->bus)
 		return -ENOMEM;
-	strncpy(macb->bus->name, dev->name, MDIO_NAME_LEN);
+	strlcpy(macb->bus->name, dev->name, MDIO_NAME_LEN);
 	macb->bus->read = macb_miiphy_read;
 	macb->bus->write = macb_miiphy_write;
 
@@ -1444,7 +1465,7 @@ static int macb_eth_of_to_plat(struct udevice *dev)
 {
 	struct eth_pdata *pdata = dev_get_plat(dev);
 
-	pdata->iobase = (phys_addr_t)dev_remap_addr(dev);
+	pdata->iobase = (uintptr_t)dev_remap_addr(dev);
 	if (!pdata->iobase)
 		return -EINVAL;
 
@@ -1456,13 +1477,6 @@ static const struct macb_usrio_cfg sama7g5_usrio = {
 	.rmii = 1,
 	.rgmii = 2,
 	.clken = BIT(2),
-};
-
-static const struct macb_config microchip_config = {
-	.dma_burst_length = 16,
-	.hw_dma_cap = HW_DMA_CAP_64B,
-	.clk_init = NULL,
-	.usrio = &macb_default_usrio,
 };
 
 static const struct macb_config sama5d4_config = {
@@ -1507,8 +1521,6 @@ static const struct udevice_id macb_eth_ids[] = {
 	{ .compatible = "cdns,zynq-gem" },
 	{ .compatible = "sifive,fu540-c000-gem",
 	  .data = (ulong)&sifive_config },
-	{ .compatible = "microchip,mpfs-mss-gem",
-	  .data = (ulong)&microchip_config },
 	{ }
 };
 

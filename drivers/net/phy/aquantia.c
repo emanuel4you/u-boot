@@ -3,7 +3,7 @@
  * Aquantia PHY drivers
  *
  * Copyright 2014 Freescale Semiconductor, Inc.
- * Copyright 2018 NXP
+ * Copyright 2018, 2021 NXP
  */
 #include <config.h>
 #include <common.h>
@@ -136,7 +136,7 @@ static int aquantia_read_fw(u8 **fw_addr, size_t *fw_length)
 
 	*fw_addr = NULL;
 	*fw_length = 0;
-	debug("Loading Acquantia microcode from %s %s\n",
+	debug("Loading Aquantia microcode from %s %s\n",
 	      CONFIG_PHY_AQUANTIA_FW_PART, CONFIG_PHY_AQUANTIA_FW_NAME);
 	ret = fs_set_blk_dev("mmc", CONFIG_PHY_AQUANTIA_FW_PART, FS_TYPE_ANY);
 	if (ret < 0)
@@ -163,7 +163,7 @@ static int aquantia_read_fw(u8 **fw_addr, size_t *fw_length)
 
 	*fw_addr = addr;
 	*fw_length = length;
-	debug("Found Acquantia microcode.\n");
+	debug("Found Aquantia microcode.\n");
 
 cleanup:
 	if (ret < 0) {
@@ -257,7 +257,7 @@ static int aquantia_upload_firmware(struct phy_device *phydev)
 
 	strlcpy(version, (char *)&addr[dram_offset + VERSION_STRING_OFFSET],
 		VERSION_STRING_SIZE);
-	printf("%s loading firmare version '%s'\n", phydev->dev->name, version);
+	printf("%s loading firmware version '%s'\n", phydev->dev->name, version);
 
 	/* stall the microcprocessor */
 	phy_write(phydev, MDIO_MMD_VEND1, UP_CONTROL,
@@ -288,7 +288,7 @@ static int aquantia_upload_firmware(struct phy_device *phydev)
 
 	phy_write(phydev, MDIO_MMD_VEND1, UP_CONTROL, UP_RUN_STALL_OVERRIDE);
 
-	printf("%s firmare loading done.\n", phydev->dev->name);
+	printf("%s firmware loading done.\n", phydev->dev->name);
 done:
 	free(addr);
 	return ret;
@@ -305,12 +305,12 @@ struct {
 	u16 syscfg;
 	int cnt;
 	u16 start_rate;
-} aquantia_syscfg[PHY_INTERFACE_MODE_COUNT] = {
+} aquantia_syscfg[PHY_INTERFACE_MODE_MAX] = {
 	[PHY_INTERFACE_MODE_SGMII] =      {0x04b, AQUANTIA_VND1_GSYSCFG_1G,
 					   AQUANTIA_VND1_GSTART_RATE_1G},
-	[PHY_INTERFACE_MODE_SGMII_2500] = {0x144, AQUANTIA_VND1_GSYSCFG_2_5G,
+	[PHY_INTERFACE_MODE_2500BASEX]  = {0x144, AQUANTIA_VND1_GSYSCFG_2_5G,
 					   AQUANTIA_VND1_GSTART_RATE_2_5G},
-	[PHY_INTERFACE_MODE_XFI] =        {0x100, AQUANTIA_VND1_GSYSCFG_10G,
+	[PHY_INTERFACE_MODE_10GBASER] =   {0x100, AQUANTIA_VND1_GSYSCFG_10G,
 					   AQUANTIA_VND1_GSTART_RATE_10G},
 	[PHY_INTERFACE_MODE_USXGMII] =    {0x080, AQUANTIA_VND1_GSYSCFG_10G,
 					   AQUANTIA_VND1_GSTART_RATE_10G},
@@ -443,18 +443,18 @@ int aquantia_config(struct phy_device *phydev)
 			return ret;
 	}
 	/*
-	 * for backward compatibility convert XGMII into either XFI or USX based
-	 * on FW config
+	 * for backward compatibility convert XGMII into either 10GBase-R or
+	 * USXGMII based on FW config
 	 */
 	if (interface == PHY_INTERFACE_MODE_XGMII) {
-		debug("use XFI or USXGMII SI protos, XGMII is not valid\n");
+		debug("use 10GBase-R or USXGMII SI protos, XGMII is not valid\n");
 
 		reg_val1 = phy_read(phydev, MDIO_MMD_PHYXS,
 				    AQUANTIA_SYSTEM_INTERFACE_SR);
 		if ((reg_val1 & AQUANTIA_SI_IN_USE_MASK) == AQUANTIA_SI_USXGMII)
 			interface = PHY_INTERFACE_MODE_USXGMII;
 		else
-			interface = PHY_INTERFACE_MODE_XFI;
+			interface = PHY_INTERFACE_MODE_10GBASER;
 	}
 
 	/*
@@ -494,7 +494,7 @@ int aquantia_config(struct phy_device *phydev)
 	case PHY_INTERFACE_MODE_USXGMII:
 		usx_an = 1;
 		/* FALLTHROUGH */
-	case PHY_INTERFACE_MODE_XFI:
+	case PHY_INTERFACE_MODE_10GBASER:
 		/* 10GBASE-T mode */
 		phydev->advertising = SUPPORTED_10000baseT_Full;
 		phydev->supported = phydev->advertising;
@@ -515,14 +515,14 @@ int aquantia_config(struct phy_device *phydev)
 			      phydev->dev->name);
 		} else {
 			reg_val1 &= ~AQUANTIA_USX_AUTONEG_CONTROL_ENA;
-			debug("%s: system interface XFI\n",
+			debug("%s: system interface 10GBase-R\n",
 			      phydev->dev->name);
 		}
 
 		phy_write(phydev, MDIO_MMD_PHYXS,
 			  AQUANTIA_VENDOR_PROVISIONING_REG, reg_val1);
 		break;
-	case PHY_INTERFACE_MODE_SGMII_2500:
+	case PHY_INTERFACE_MODE_2500BASEX:
 		/* 2.5GBASE-T mode */
 		phydev->advertising = SUPPORTED_1000baseT_Full;
 		phydev->supported = phydev->advertising;
@@ -554,8 +554,9 @@ int aquantia_config(struct phy_device *phydev)
 
 int aquantia_startup(struct phy_device *phydev)
 {
-	u32 reg, speed;
+	u32 speed;
 	int i = 0;
+	int reg;
 
 	phydev->duplex = DUPLEX_FULL;
 

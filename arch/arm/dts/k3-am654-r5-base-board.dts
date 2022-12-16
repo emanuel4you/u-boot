@@ -309,6 +309,7 @@
 &dwc3_0 {
 	status = "okay";
 	u-boot,dm-spl;
+	/delete-property/ clocks;
 	/delete-property/ power-domains;
 	/delete-property/ assigned-clocks;
 	/delete-property/ assigned-clock-parents;
@@ -330,5 +331,3 @@
 &scm_conf {
 	u-boot,dm-spl;
 };
-
-#include "k3-am654-base-board-u-boot.dtsi"

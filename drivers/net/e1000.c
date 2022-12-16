@@ -5251,11 +5251,7 @@ e1000_configure_tx(struct e1000_hw *hw)
 		mdelay(20);
 	}
 
-
-
 	E1000_WRITE_REG(hw, TCTL, tctl);
-
-
 }
 
 /**
@@ -5553,8 +5549,8 @@ static int e1000_init_one(struct e1000_hw *hw, int cardnum, pci_dev_t devno,
 	hw->eeprom_semaphore_present = true;
 #endif
 #ifdef CONFIG_DM_ETH
-	hw->hw_addr = dm_pci_map_bar(devno,	PCI_BASE_ADDRESS_0,
-						PCI_REGION_MEM);
+	hw->hw_addr = dm_pci_map_bar(devno,	PCI_BASE_ADDRESS_0, 0, 0,
+						PCI_REGION_TYPE, PCI_REGION_MEM);
 #else
 	hw->hw_addr = pci_map_bar(devno,	PCI_BASE_ADDRESS_0,
 						PCI_REGION_MEM);
@@ -5672,6 +5668,10 @@ static int e1000_write_hwaddr(struct eth_device *dev)
 	int ret_val, i;
 
 	DEBUGOUT("%s: mac=%pM\n", __func__, mac);
+
+	if ((hw->eeprom.type == e1000_eeprom_invm) &&
+	    !(E1000_READ_REG(hw, EECD) & E1000_EECD_FLASH_DETECTED_I210))
+		return -ENOSYS;
 
 	memset(current_mac, 0, 6);
 
@@ -5792,7 +5792,7 @@ static int do_e1000(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	/* Make sure we can find the requested e1000 card */
-	cardnum = simple_strtoul(argv[1], NULL, 10);
+	cardnum = dectoul(argv[1], NULL);
 #ifdef CONFIG_DM_ETH
 	e1000_name(name, cardnum);
 	ret = uclass_get_device_by_name(UCLASS_ETH, name, &dev);

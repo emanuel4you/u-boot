@@ -20,6 +20,7 @@ The support for following drivers are already enabled:
 2. Microchip Clock Driver.
 3. Cadence MACB ethernet driver for networking support.
 4. Cadence MMC Driver for eMMC/SD support.
+5. Microchip I2C Driver.
 
 Booting from eMMC using HSS
 ---------------------------
@@ -208,13 +209,14 @@ GUID type
 ~~~~~~~~~
 
 The HSS always picks up HSS payload from a GPT partition with
-GIUD type "21686148-6449-6E6F-744E-656564454649" or sector '0' of the eMMC if no
+GUID type "21686148-6449-6E6F-744E-656564454649" or sector '0' of the eMMC if no
 GPT partition.
 
 Booting
 ~~~~~~~
 
-You should see the U-Boot prompt on UART0.
+You should see the U-Boot prompt on UART1.
+(Note: UART0 is reserved for HSS)
 
 Sample boot log from MPFS Icicle Kit
 ''''''''''''''''''''''''''''''''''''
@@ -451,13 +453,14 @@ copied payload and Linux image.
 
     sudo dd if=<payload_binary> of=/dev/sdX2 bs=512
 
-You should see the U-Boot prompt on UART0.
+You should see the U-Boot prompt on UART1.
+(Note: UART0 is reserved for HSS)
 
 GUID type
 ~~~~~~~~~
 
 The HSS always picks up the HSS payload from a GPT partition with
-GIUD type "21686148-6449-6E6F-744E-656564454649" or sector '0' of the eMMC if no
+GUID type "21686148-6449-6E6F-744E-656564454649" or sector '0' of the eMMC if no
 GPT partition.
 
 Sample boot log from MPFS Icicle Kit

@@ -13,7 +13,6 @@
 		led0 = &led0;
 		led1 = &led1;
 		led2 = &led2;
-		mmc0 = &usdhc3;
 		nand = &gpmi;
 		usb0 = &usbh1;
 		usb1 = &usbotg;
@@ -25,8 +24,6 @@
 
 	gpio-keys {
 		compatible = "gpio-keys";
-		#address-cells = <1>;
-		#size-cells = <0>;
 
 		user-pb {
 			label = "user_pb";

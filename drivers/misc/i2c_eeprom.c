@@ -3,6 +3,8 @@
  * Copyright (c) 2014 Google, Inc
  */
 
+#define LOG_CATEGORY UCLASS_I2C_EEPROM
+
 #include <common.h>
 #include <eeprom.h>
 #include <linux/delay.h>
@@ -31,7 +33,8 @@ int i2c_eeprom_read(struct udevice *dev, int offset, uint8_t *buf, int size)
 	return ops->read(dev, offset, buf, size);
 }
 
-int i2c_eeprom_write(struct udevice *dev, int offset, uint8_t *buf, int size)
+int i2c_eeprom_write(struct udevice *dev, int offset, const uint8_t *buf,
+		     int size)
 {
 	const struct i2c_eeprom_ops *ops = device_get_ops(dev);
 
@@ -167,13 +170,6 @@ static const struct i2c_eeprom_drv_data eeprom_data = {
 	.offset_len = 1,
 };
 
-static const struct i2c_eeprom_drv_data mc24aa02e48_data = {
-	.size = 256,
-	.pagesize = 8,
-	.addr_offset_mask = 0,
-	.offset_len = 1,
-};
-
 static const struct i2c_eeprom_drv_data atmel24c01a_data = {
 	.size = 128,
 	.pagesize = 8,
@@ -261,7 +257,7 @@ static const struct i2c_eeprom_drv_data atmel24c512_data = {
 
 static const struct udevice_id i2c_eeprom_std_ids[] = {
 	{ .compatible = "i2c-eeprom", (ulong)&eeprom_data },
-	{ .compatible = "microchip,24aa02e48", (ulong)&mc24aa02e48_data },
+	{ .compatible = "atmel,24c01", (ulong)&atmel24c01a_data },
 	{ .compatible = "atmel,24c01a", (ulong)&atmel24c01a_data },
 	{ .compatible = "atmel,24c02", (ulong)&atmel24c02_data },
 	{ .compatible = "atmel,24c04", (ulong)&atmel24c04_data },

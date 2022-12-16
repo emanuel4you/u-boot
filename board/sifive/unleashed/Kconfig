@@ -12,7 +12,7 @@ config SYS_CPU
 config SYS_CONFIG_NAME
 	default "sifive-unleashed"
 
-config SYS_TEXT_BASE
+config TEXT_BASE
 	default 0x80200000 if SPL
 	default 0x80000000 if !RISCV_SMODE
 	default 0x80200000 if RISCV_SMODE
@@ -27,6 +27,8 @@ config BOARD_SPECIFIC_OPTIONS # dummy
 	def_bool y
 	select SIFIVE_FU540
 	select ENV_IS_IN_SPI_FLASH
+	select BINMAN
+	select RESET_SIFIVE
 	imply CMD_DHCP
 	imply CMD_EXT2
 	imply CMD_EXT4

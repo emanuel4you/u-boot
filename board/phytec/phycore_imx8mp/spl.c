@@ -62,42 +62,30 @@ int power_init_board(void)
 	/* BUCKxOUT_DVS0/1 control BUCK123 output */
 	pmic_reg_write(p, PCA9450_BUCK123_DVS, 0x29);
 
-	/* increase VDD_SOC to typical value 0.95V */
+	/* Increase VDD_SOC and VDD_ARM to OD voltage 0.95V */
+	pmic_reg_write(p, PCA9450_BUCK1OUT_DVS0, 0x1C);
 	pmic_reg_write(p, PCA9450_BUCK2OUT_DVS0, 0x1C);
 
-	/* set WDOG_B_CFG to cold reset */
+	/* Set BUCK1 DVS1 to suspend controlled through PMIC_STBY_REQ */
+	pmic_reg_write(p, PCA9450_BUCK1OUT_DVS1, 0x14);
+	pmic_reg_write(p, PCA9450_BUCK1CTRL, 0x59);
+
+	/* Set WDOG_B_CFG to cold reset */
 	pmic_reg_write(p, PCA9450_RESET_CTRL, 0xA1);
 
 	return 0;
 }
 
-int board_fit_config_name_match(const char *name)
+void spl_board_init(void)
 {
-	return 0;
+	/* Set GIC clock to 500Mhz for OD VDD_SOC. */
+	clock_enable(CCGR_GIC, 0);
+	clock_set_target_val(GIC_CLK_ROOT, CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(5));
+	clock_enable(CCGR_GIC, 1);
 }
 
-#define UART_PAD_CTRL   (PAD_CTL_DSE6 | PAD_CTL_FSEL1)
-#define WDOG_PAD_CTRL   (PAD_CTL_DSE6 | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
-
-static iomux_v3_cfg_t const uart_pads[] = {
-	MX8MP_PAD_UART2_RXD__UART2_DCE_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX8MP_PAD_UART2_TXD__UART2_DCE_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-};
-
-static iomux_v3_cfg_t const wdog_pads[] = {
-	MX8MP_PAD_GPIO1_IO02__WDOG1_WDOG_B  | MUX_PAD_CTRL(WDOG_PAD_CTRL),
-};
-
-int board_early_init_f(void)
+int board_fit_config_name_match(const char *name)
 {
-	struct wdog_regs *wdog = (struct wdog_regs *)WDOG1_BASE_ADDR;
-
-	imx_iomux_v3_setup_multiple_pads(wdog_pads, ARRAY_SIZE(wdog_pads));
-
-	set_wdog_reset(wdog);
-
-	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
-
 	return 0;
 }
 
@@ -107,9 +95,7 @@ void board_init_f(ulong dummy)
 
 	arch_cpu_init();
 
-	init_uart_clk(1);
-
-	board_early_init_f();
+	init_uart_clk(0);
 
 	ret = spl_early_init();
 	if (ret) {

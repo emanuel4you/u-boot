@@ -21,7 +21,7 @@ DECLARE_GLOBAL_DATA_PTR;
  * Image booting support
  */
 static int booti_start(struct cmd_tbl *cmdtp, int flag, int argc,
-		       char *const argv[], bootm_headers_t *images)
+		       char *const argv[], struct bootm_headers *images)
 {
 	int ret;
 	ulong ld;
@@ -43,7 +43,7 @@ static int booti_start(struct cmd_tbl *cmdtp, int flag, int argc,
 		debug("*  kernel: default image load address = 0x%08lx\n",
 				image_load_addr);
 	} else {
-		ld = simple_strtoul(argv[0], NULL, 16);
+		ld = hextoul(argv[0], NULL);
 		debug("*  kernel: cmdline image address = 0x%08lx\n", ld);
 	}
 

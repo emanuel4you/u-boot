@@ -19,7 +19,14 @@
 
 #define DEFAULT_ADDRESS		0xFFFFFFFF
 
-#define OTP_SIZE		1024
+#define CMD_SIZE		512
+/* SMC is only supported in SPMIN for STM32MP15x */
+#ifdef CONFIG_STM32MP15x
+#define OTP_SIZE_SMC		1024
+#else
+#define OTP_SIZE_SMC		0
+#endif
+#define OTP_SIZE_TA		776
 #define PMIC_SIZE		8
 
 enum stm32prog_target {
@@ -40,6 +47,7 @@ enum stm32prog_link_t {
 enum stm32prog_header_t {
 	HEADER_NONE,
 	HEADER_STM32IMAGE,
+	HEADER_STM32IMAGE_V2,
 	HEADER_FIP,
 };
 
@@ -47,11 +55,12 @@ struct image_header_s {
 	enum stm32prog_header_t type;
 	u32	image_checksum;
 	u32	image_length;
+	u32	length;
 };
 
-struct raw_header_s {
+struct stm32_header_v1 {
 	u32 magic_number;
-	u32 image_signature[64 / 4];
+	u8 image_signature[64];
 	u32 image_checksum;
 	u32 header_version;
 	u32 image_length;
@@ -62,19 +71,38 @@ struct raw_header_s {
 	u32 version_number;
 	u32 option_flags;
 	u32 ecdsa_algorithm;
-	u32 ecdsa_public_key[64 / 4];
-	u32 padding[83 / 4];
-	u32 binary_type;
+	u8 ecdsa_public_key[64];
+	u8 padding[83];
+	u8 binary_type;
 };
 
-#define BL_HEADER_SIZE	sizeof(struct raw_header_s)
+struct stm32_header_v2 {
+	u32 magic_number;
+	u8 image_signature[64];
+	u32 image_checksum;
+	u32 header_version;
+	u32 image_length;
+	u32 image_entry_point;
+	u32 reserved1;
+	u32 load_address;
+	u32 reserved2;
+	u32 version_number;
+	u32 extension_flags;
+	u32 extension_headers_length;
+	u32 binary_type;
+	u8 padding[16];
+	u32 extension_header_type;
+	u32 extension_header_length;
+	u8 extension_padding[376];
+};
 
 /* partition type in flashlayout file */
 enum stm32prog_part_type {
 	PART_BINARY,
+	PART_FIP,
 	PART_SYSTEM,
 	PART_FILESYSTEM,
-	RAW_IMAGE
+	RAW_IMAGE,
 };
 
 /* device information */
@@ -121,7 +149,9 @@ struct stm32prog_data {
 	struct stm32prog_dev_t	dev[STM32PROG_MAX_DEV];	/* array of device */
 	int			part_nb;	/* nb of partition */
 	struct stm32prog_part_t	*part_array;	/* array of partition */
+#ifdef CONFIG_STM32MP15x_STM32IMAGE
 	bool			tee_detected;
+#endif
 	bool			fsbl_nor_detected;
 
 	/* command internal information */
@@ -129,24 +159,27 @@ struct stm32prog_data {
 	u32			offset;
 	char			error[255];
 	struct stm32prog_part_t	*cur_part;
-	u32			*otp_part;
+	void			*otp_part;
 	u8			pmic_part[PMIC_SIZE];
-
-	/* STM32 header information */
-	struct raw_header_s	*header_data;
-	struct image_header_s	header;
 
 	/* SERIAL information */
 	u32	cursor;
 	u32	packet_number;
-	u32	checksum;
 	u8	*buffer; /* size = USART_RAM_BUFFER_SIZE*/
 	int	dfu_seq;
 	u8	read_phase;
 
 	/* bootm information */
-	u32	uimage;
-	u32	dtb;
+	uintptr_t	uimage;
+	uintptr_t	dtb;
+	uintptr_t	initrd;
+	size_t		initrd_size;
+
+	uintptr_t	script;
+
+	/* OPTEE PTA NVMEM */
+	struct udevice *tee;
+	u32 tee_session;
 };
 
 extern struct stm32prog_data *stm32prog_data;
@@ -166,8 +199,7 @@ int stm32prog_pmic_read(struct stm32prog_data *data, u32 offset,
 int stm32prog_pmic_start(struct stm32prog_data *data);
 
 /* generic part*/
-void stm32prog_header_check(struct raw_header_s *raw_header,
-			    struct image_header_s *header);
+void stm32prog_header_check(uintptr_t raw_header, struct image_header_s *header);
 int stm32prog_dfu_init(struct stm32prog_data *data);
 void stm32prog_next_phase(struct stm32prog_data *data);
 void stm32prog_do_reset(struct stm32prog_data *data);
@@ -182,7 +214,7 @@ char *stm32prog_get_error(struct stm32prog_data *data);
 	}
 
 /* Main function */
-int stm32prog_init(struct stm32prog_data *data, ulong addr, ulong size);
+int stm32prog_init(struct stm32prog_data *data, uintptr_t addr, ulong size);
 void stm32prog_clean(struct stm32prog_data *data);
 
 #ifdef CONFIG_CMD_STM32PROG_SERIAL
